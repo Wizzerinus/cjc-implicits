@@ -145,6 +145,7 @@ private:
     flatbuffers::Offset<NodeFormat::Expr> SerializePrimitiveTypeExpr(AstExpr expr);
     flatbuffers::Offset<NodeFormat::Expr> SerializeSpawnExpr(AstExpr expr);
     flatbuffers::Offset<NodeFormat::Expr> SerializeSynchronizedExpr(AstExpr expr);
+    flatbuffers::Offset<NodeFormat::Expr> SerializeImplicitWithExpr(AstExpr expr);
     flatbuffers::Offset<NodeFormat::Expr> SerializeArrayLit(AstExpr expr);
     flatbuffers::Offset<NodeFormat::Expr> SerializeTupleLit(AstExpr expr);
     flatbuffers::Offset<NodeFormat::Expr> SerializeSubscriptExpr(AstExpr expr);
