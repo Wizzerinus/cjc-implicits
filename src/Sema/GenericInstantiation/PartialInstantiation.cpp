@@ -1011,7 +1011,7 @@ OwnedPtr<SynchronizedExpr> PartialInstantiation::InstantiateSynchronizedExpr(
     return expr;
 }
 
-OwnedPtr<ImplicitWithExpr> PartialInstantiation::InstantiateSynchronizedExpr(
+OwnedPtr<ImplicitWithExpr> PartialInstantiation::InstantiateImplicitWithExpr(
     const ImplicitWithExpr& iwe, const VisitFunc& visitor)
 {
     auto expr = MakeOwned<ImplicitWithExpr>();
