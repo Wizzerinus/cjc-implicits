@@ -1144,6 +1144,11 @@ Ptr<Ty> TypeChecker::TypeCheckerImpl::Synthesize(ASTContext& ctx, Ptr<Node> node
             node->ty = SynSyncExpr(*curCtx, *StaticAs<ASTKind::SYNCHRONIZED_EXPR>(node));
             break;
         }
+        case ASTKind::IMPLICIT_WITH_EXPR: {
+            // TODO: synthesize type for with-expressions.
+            node->ty = TypeManager::GetInvalidTy();
+            break;
+        }
         case ASTKind::EXTEND_DECL: {
             CheckExtendDecl(*curCtx, *StaticAs<ASTKind::EXTEND_DECL>(node));
             break;
@@ -1370,6 +1375,10 @@ bool TypeChecker::TypeCheckerImpl::Check(ASTContext& ctx, Ptr<Ty> target, Ptr<No
             }
             case ASTKind::SYNCHRONIZED_EXPR: {
                 chkRet = ChkSyncExpr(*curCtx, realTarget, *StaticAs<ASTKind::SYNCHRONIZED_EXPR>(node));
+                break;
+            }
+            case ASTKind::IMPLICIT_WITH_EXPR: {
+                // TODO
                 break;
             }
             case ASTKind::IS_EXPR: {

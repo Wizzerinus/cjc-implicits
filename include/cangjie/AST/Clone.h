@@ -106,6 +106,7 @@ private:
     static OwnedPtr<TypeConvExpr> CloneTypeConvExpr(const TypeConvExpr& tce, const VisitFunc& visitor);
     static OwnedPtr<SpawnExpr> CloneSpawnExpr(const SpawnExpr& se, const VisitFunc& visitor);
     static OwnedPtr<SynchronizedExpr> CloneSynchronizedExpr(const SynchronizedExpr& se, const VisitFunc& visitor);
+    static OwnedPtr<ImplicitWithExpr> CloneImplicitWithExpr(const ImplicitWithExpr& iwe, const VisitFunc& visitor);
     static OwnedPtr<InvalidExpr> CloneInvalidExpr(const InvalidExpr& ie);
     static OwnedPtr<InterpolationExpr> CloneInterpolationExpr(const InterpolationExpr& ie, const VisitFunc& visitor);
     static OwnedPtr<StrInterpolationExpr> CloneStrInterpolationExpr(

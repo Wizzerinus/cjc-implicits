@@ -96,6 +96,7 @@ ASTKIND(PERFORM_EXPR, "perform_expr", PerformExpr, 464)
 ASTKIND(RESUME_EXPR, "resume_expr", ResumeExpr, 528)
 ASTKIND(SPAWN_EXPR, "spawn_expr", SpawnExpr, 512)
 ASTKIND(SYNCHRONIZED_EXPR, "synchronized_expr", SynchronizedExpr, 512)
+ASTKIND(IMPLICIT_WITH_EXPR, "implicit_with_expr", ImplicitWithExpr, 512)
 ASTKIND(MACRO_EXPAND_EXPR, "macro_expand_expr", MacroExpandExpr, 1312)
 ASTKIND(IF_AVAILABLE_EXPR, "if_available_expr", IfAvailableExpr, 448)
 ASTKIND(INVALID_EXPR, "invalid_expr", InvalidExpr, 464) // end of subtypes of Expr.

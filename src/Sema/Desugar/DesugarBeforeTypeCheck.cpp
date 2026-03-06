@@ -666,11 +666,13 @@ private:
         bool matchCaseBody = (caseKinds.count(parent.astKind) > 0) && node.astKind == ASTKind::BLOCK;
         // synchronized to its body
         bool syncBody = parent.astKind == ASTKind::SYNCHRONIZED_EXPR && node.astKind == ASTKind::BLOCK;
+        // implicit-with to its body
+        bool withBody = parent.astKind == ASTKind::IMPLICIT_WITH_EXPR && node.astKind == ASTKind::BLOCK;
         // parentheses to their inner exprssion
         bool parentheses = parent.astKind == ASTKind::PAREN_EXPR;
         // info of FuncDecl has to pass down through FuncBody node
         bool funcBody = parent.astKind == ASTKind::FUNC_BODY;
-        return ifBody || tryBody || matchCase || matchCaseBody || syncBody || parentheses || funcBody ;
+        return ifBody || tryBody || matchCase || matchCaseBody || syncBody || withBody || parentheses || funcBody ;
     };
 
     /* Some expressions will ignore a child block's return value. */
@@ -747,6 +749,8 @@ void PerformDesugarBeforeTypeCheck(Node& root, bool desugarMacrocall)
             DesugarTrailingClosureExpr(*StaticAs<ASTKind::TRAIL_CLOSURE_EXPR>(node));
         } else if (node->astKind == ASTKind::SYNCHRONIZED_EXPR) {
             DesugarSynchronizedExpr(*StaticAs<ASTKind::SYNCHRONIZED_EXPR>(node));
+        } else if (node->astKind == ASTKind::IMPLICIT_WITH_EXPR) {
+            // TODO
         } else if (node->astKind == ASTKind::OPTIONAL_CHAIN_EXPR) {
             DesugarOptionalChainExpr(*StaticAs<ASTKind::OPTIONAL_CHAIN_EXPR>(node));
         } else if (node->astKind == ASTKind::INC_OR_DEC_EXPR) {

@@ -655,7 +655,7 @@ void Collector::BuildSymbolTable(ASTContext& ctx, Ptr<Node> node, bool buildTrie
     }
     // For-In expr and Synchronized expr need to be collected in new scope, and will be processed later.
     if (auto expr = DynamicCast<Expr*>(node);
-        expr && expr->astKind != ASTKind::FOR_IN_EXPR && expr->astKind != ASTKind::SYNCHRONIZED_EXPR) {
+        expr && expr->astKind != ASTKind::FOR_IN_EXPR && expr->astKind != ASTKind::SYNCHRONIZED_EXPR && expr->astKind != ASTKind::IMPLICIT_WITH_EXPR) {
         BuildSymbolTable(ctx, expr->desugarExpr.get(), buildTrie);
     }
     switch (node->astKind) {
@@ -1161,6 +1161,18 @@ void Collector::BuildSymbolTable(ASTContext& ctx, Ptr<Node> node, bool buildTrie
             scopeManager.InitializeScope(ctx);
             BuildSymbolTable(ctx, se->mutex.get(), buildTrie);
             BuildSymbolTable(ctx, se->desugarExpr.get(), buildTrie);
+            scopeManager.FinalizeScope(ctx);
+            break;
+        }
+        case ASTKind::IMPLICIT_WITH_EXPR: {
+            auto iwe = StaticAs<ASTKind::IMPLICIT_WITH_EXPR>(node);
+            auto nodeInfo = NodeInfo(*iwe, "", ctx.currentScopeLevel, scopeManager.CalcScopeGateName(ctx));
+            AddSymbol(ctx, nodeInfo, buildTrie);
+            scopeManager.InitializeScope(ctx);
+            for (auto& child : iwe->children) {
+                BuildSymbolTable(ctx, child.get(), buildTrie);
+            }
+            BuildSymbolTable(ctx, iwe->desugarExpr.get(), buildTrie);
             scopeManager.FinalizeScope(ctx);
             break;
         }

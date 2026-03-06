@@ -945,6 +945,22 @@ OwnedPtr<SynchronizedExpr> ASTCloner::CloneSynchronizedExpr(const SynchronizedEx
     return expr;
 }
 
+OwnedPtr<ImplicitWithExpr> ASTCloner::CloneImplicitWithExpr(const ImplicitWithExpr& iwe, const VisitFunc& visitor)
+{
+    auto expr = MakeOwned<ImplicitWithExpr>();
+    for (auto& child : iwe.children) {
+        expr->children.push_back(CloneExpr(child.get(), visitor));
+    }
+    expr->body = CloneExpr(iwe.body.get(), visitor);
+    expr->withPos = iwe.withPos;
+    expr->leftParenPos = iwe.leftParenPos;
+    expr->rightParenPos = iwe.rightParenPos;
+    for (auto pos : iwe.commaPosVector) {
+        expr->commaPosVector.push_back(pos);
+    }
+    return expr;
+}
+
 OwnedPtr<InvalidExpr> ASTCloner::CloneInvalidExpr(const InvalidExpr& ie)
 {
     auto expr = MakeOwned<InvalidExpr>(ie.begin);
@@ -1066,6 +1082,7 @@ template <typename ExprT> OwnedPtr<ExprT> ASTCloner::CloneExpr(Ptr<ExprT> expr, 
         [&visitor](const TypeConvExpr& e) { return OwnedPtr<Expr>(CloneTypeConvExpr(e, visitor)); },
         [&visitor](const SpawnExpr& se) { return OwnedPtr<Expr>(CloneSpawnExpr(se, visitor)); },
         [&visitor](const SynchronizedExpr& se) { return OwnedPtr<Expr>(CloneSynchronizedExpr(se, visitor)); },
+        [&visitor](const ImplicitWithExpr& iwe) { return OwnedPtr<Expr>(CloneImplicitWithExpr(iwe, visitor)); },
         [](const InvalidExpr& ie) { return OwnedPtr<Expr>(CloneInvalidExpr(ie)); },
         [&visitor](const Block& b) { return OwnedPtr<Expr>(CloneBlock(b, visitor)); },
         [&visitor](const InterpolationExpr& ie) { return OwnedPtr<Expr>(CloneInterpolationExpr(ie, visitor)); },

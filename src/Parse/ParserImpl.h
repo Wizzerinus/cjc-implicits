@@ -216,6 +216,7 @@ private:
         {TokenKind::DO, &ParserImpl::ParseDoWhileExpr},
         {TokenKind::SPAWN, &ParserImpl::ParseSpawnExpr},
         {TokenKind::SYNCHRONIZED, &ParserImpl::ParseSynchronizedExpr},
+        {TokenKind::WITH, &ParserImpl::ParseImplicitWithExpr},
         {TokenKind::LPAREN, &ParserImpl::ParseLeftParenExpr},
         {TokenKind::CONTINUE, &ParserImpl::ParseContinueJumpExpr},
         {TokenKind::BREAK, &ParserImpl::ParseBreakJumpExpr},
@@ -812,6 +813,7 @@ private:
         const std::set<AST::Attribute>& attributes = {}, bool isVar = false, bool inDecl = false);
     OwnedPtr<AST::SpawnExpr> ParseSpawnExpr();
     OwnedPtr<AST::SynchronizedExpr> ParseSynchronizedExpr();
+    OwnedPtr<AST::ImplicitWithExpr> ParseImplicitWithExpr();
     void ParseTopLvlFeatures(OwnedPtr<FeaturesDirective>& ftrDirective,
         PtrVector<Annotation>& annos);
     void ParseFeatureDirective(OwnedPtr<FeaturesDirective>& features);

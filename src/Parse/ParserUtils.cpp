@@ -132,6 +132,7 @@ bool ParserImpl::SeeingExpr()
         TokenKind::DO,
         TokenKind::SPAWN,
         TokenKind::SYNCHRONIZED,
+        TokenKind::WITH,
         TokenKind::LPAREN,
         TokenKind::LCURL,
         TokenKind::LSQUARE,

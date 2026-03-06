@@ -3024,6 +3024,21 @@ struct SynchronizedExpr : Expr {
     }
 };
 
+/**
+ * An implicit supplier node.
+ */
+struct ImplicitWithExpr : Expr {
+    Position withPos; /**< The position of 'with'. */
+    Position leftParenPos;
+    std::vector<OwnedPtr<Expr>> children; /**< Parameters supplied into the implicit context. */
+    std::vector<Position> commaPosVector; /**< Positions of commas. */
+    Position rightParenPos;
+    OwnedPtr<Block> body; /**< The block inside the With. */
+    ImplicitWithExpr() : Expr(ASTKind::IMPLICIT_WITH_EXPR)
+    {
+    }
+};
+
 inline bool CompNodeByPos(Ptr<const AST::Node> n1, Ptr<const AST::Node> n2)
 {
     if (!n1 || !n2) {

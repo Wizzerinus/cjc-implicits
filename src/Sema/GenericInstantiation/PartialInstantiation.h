@@ -131,6 +131,8 @@ private:
     static OwnedPtr<AST::SpawnExpr> InstantiateSpawnExpr(const AST::SpawnExpr& se, const VisitFunc& visitor);
     static OwnedPtr<AST::SynchronizedExpr> InstantiateSynchronizedExpr(
         const AST::SynchronizedExpr& se, const VisitFunc& visitor);
+    static OwnedPtr<AST::ImplicitWithExpr> InstantiateImplicitWithExpr(
+        const AST::ImplicitWithExpr& se, const VisitFunc& visitor);
     static OwnedPtr<AST::InvalidExpr> InstantiateInvalidExpr(const AST::InvalidExpr& ie);
     static OwnedPtr<AST::InterpolationExpr> InstantiateInterpolationExpr(
         const AST::InterpolationExpr& ie, const VisitFunc& visitor);

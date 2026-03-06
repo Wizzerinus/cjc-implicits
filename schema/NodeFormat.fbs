@@ -43,6 +43,7 @@ union AnyExpr {
   INC_OR_DEC_EXPR: IncOrDecExpr,
   SPAWN_EXPR: SpawnExpr,
   SYNCHRONIZED_EXPR: SynchronizedExpr,
+  IMPLICIT_WITH_EXPR: ImplicitWithExpr,
   LET_PATTERN_DESTRUCTOR: LetPatternDestructor,
   TOKEN_PART: TokenPart,
   QUOTE_EXPR: QuoteExpr,
@@ -379,6 +380,16 @@ table SynchronizedExpr {
   sync_pos: Position;
   left_paren_pos: Position;
   mutex_expr: Expr;
+  right_paren_pos: Position;
+  body: Block;
+}
+
+table ImplicitWithExpr {
+  base: NodeBase;
+  with_pos: Position;
+  left_paren_pos: Position;
+  children: [Expr];
+  comma_pos_vec: [Position];
   right_paren_pos: Position;
   body: Block;
 }
