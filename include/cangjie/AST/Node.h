@@ -823,6 +823,19 @@ struct VArrayType : public Type {
     {
     }
 };
+
+/**
+ * A using-statement in a function type, example: `using (Int32, String)`.
+ */
+struct FuncTypeUsing : Node {
+    Position usingPos;
+    Position leftParenPos;
+    std::vector<OwnedPtr<Type>> paramTypes;
+    Position rightParenPos;
+    FuncTypeUsing() : Node(ASTKind::USING_TYPE) {
+    }
+};
+
 /**
  * A FuncType node represents a function type, example: `(Int32, Int32)->Int32`, @p paramType is (Int32, Int32), @p
  * retType is Int32.
@@ -831,6 +844,7 @@ struct FuncType : Type {
     Position leftParenPos;                  /**< Position of '('. */
     std::vector<OwnedPtr<Type>> paramTypes; /**< Splitted by comma, type(s) of parameter(s) */
     Position rightParenPos;                 /**< Position of ')'. */
+    std::optional<OwnedPtr<FuncTypeUsing>> usingType; /**< Positions of the using section. */
     Position arrowPos;                      /**< Position of '->'. */
     OwnedPtr<Type> retType;                 /**< Split from last "->", take the right parts. */
     FuncType() : Type(ASTKind::FUNC_TYPE)

@@ -638,6 +638,7 @@ private:
         std::vector<OwnedPtr<AST::Type>> types, const Position lParenPos, const Position rParenPos) const;
     OwnedPtr<AST::ParenType> ParseParenType(
         const Position& lParenPos, const Position& rParenPos, OwnedPtr<AST::Type> type);
+    std::optional<OwnedPtr<AST::FuncTypeUsing>> ParseFuncTypeUsing();
     OwnedPtr<AST::FuncType> ParseFuncType(
         std::vector<OwnedPtr<AST::Type>> types, const Position& lParenPos, const Position& rParenPos);
     OwnedPtr<AST::Type> ParsePrefixType();
