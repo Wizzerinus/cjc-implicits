@@ -591,11 +591,19 @@ table PrimitiveType {
   kind: uint16;
 }
 
+table FuncTypeUsing {
+  using_pos: Position;
+  left_paren_pos: Position;
+  param_types: [Type];
+  right_paren_pos: Position;
+}
+
 table FuncType {
   base: TypeBase;
   left_paren_pos: Position;
   param_types: [Type];
   right_paren_pos: Position;
+  using_type: FuncTypeUsing = null;
   arrow_pos: Position;
   ret_type: Type;
   isC: bool;
