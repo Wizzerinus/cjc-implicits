@@ -432,13 +432,8 @@ flatbuffers::Offset<NodeFormat::Block> NodeWriter::SerializeBlock(AstBlock block
         builder, fbNodeBase, &leftCurPos, fbBody, &rightCurPos, block->TestAttr(Attribute::UNSAFE), &unsafePos);
 }
 
-flatbuffers::Offset<NodeFormat::FuncBody> NodeWriter::SerializeFuncBody(AstFuncBody funcBody)
+flatbuffers::Offset<NodeFormat::FuncParamList> NodeWriter::SerializeFuncParamList(AstFuncParamList paramList)
 {
-    if (funcBody == nullptr) {
-        return flatbuffers::Offset<NodeFormat::FuncBody>();
-    }
-    auto fbNodeBaseFnBody = SerializeNodeBase(funcBody);
-    auto paramList = (funcBody->paramLists)[0].get(); // a pointer to FuncParamList
     auto fbNodeBasePaList = SerializeNodeBase(paramList);
     auto leftParenPos = FlatPosCreateHelper(paramList->leftParenPos);
     auto rightParenPos = FlatPosCreateHelper(paramList->rightParenPos);
@@ -448,8 +443,21 @@ flatbuffers::Offset<NodeFormat::FuncBody> NodeWriter::SerializeFuncBody(AstFuncB
         match (*nPtr)([&, this](const MacroExpandParam& mep) { vecNode.push_back(SerializeMacroExpandParam(&mep)); },
             [&, this]() { vecNode.push_back(SerializeFuncParam(param)); });
     }
-    auto fbParamList = NodeFormat::CreateFuncParamList(
+    return NodeFormat::CreateFuncParamList(
         builder, fbNodeBasePaList, &leftParenPos, builder.CreateVector(vecNode), &rightParenPos);
+}
+
+flatbuffers::Offset<NodeFormat::FuncBody> NodeWriter::SerializeFuncBody(AstFuncBody funcBody)
+{
+    if (funcBody == nullptr) {
+        return flatbuffers::Offset<NodeFormat::FuncBody>();
+    }
+    auto fbNodeBaseFnBody = SerializeNodeBase(funcBody);
+    auto fbParamList = SerializeFuncParamList(paramList);
+    std::optional<OwnedPtr<FuncParamList>> fbImplicitParamList;
+    if (funcBody->implicitParamList.has_value()) {
+        fbImplicitParamList = SerializeFuncParamList(funcBody->implicitParamList.value().get());
+    }
     // Serialize FuncBlock
     auto bodyPtr = (funcBody->body).get();
     auto arrowPos = FlatPosCreateHelper(funcBody->doubleArrowPos);
@@ -459,7 +467,7 @@ flatbuffers::Offset<NodeFormat::FuncBody> NodeWriter::SerializeFuncBody(AstFuncB
     auto fbBody = SerializeBlock(bodyPtr);
     auto fbGeneric = SerializeGeneric(funcBody->generic.get());
     return NodeFormat::CreateFuncBody(
-        builder, fbNodeBaseFnBody, fbParamList, &arrowPos, &colonPos, fbRetType, hasBody, fbBody, fbGeneric);
+        builder, fbNodeBaseFnBody, fbParamList, fbImplicitParamList, &arrowPos, &colonPos, fbRetType, hasBody, fbBody, fbGeneric);
 }
 
 flatbuffers::Offset<NodeFormat::DeclBase> NodeWriter::SerializeDeclBase(AstDecl decl)

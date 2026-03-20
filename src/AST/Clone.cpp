@@ -1405,6 +1405,10 @@ OwnedPtr<FuncBody> ASTCloner::CloneFuncBody(const FuncBody& fb, const VisitFunc&
     for (auto& it : fb.paramLists) {
         ret->paramLists.push_back(CloneNode(it.get(), visitor));
     }
+    if (fb.implicitParamList.has_value()) {
+        ret->implicitParamList = CloneNode(fb.implicitParamList.value().get(), visitor);
+    }
+    ret->usingPos = fb.usingPos;
     ret->doubleArrowPos = fb.doubleArrowPos;
     ret->colonPos = fb.colonPos;
     ret->retType = CloneType(fb.retType.get(), visitor);

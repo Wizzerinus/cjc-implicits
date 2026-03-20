@@ -483,6 +483,9 @@ OwnedPtr<FuncBody> ASTLoader::ASTLoaderImpl::LoadFuncBody(
     for (uoffset_t i = 0; i < body.paramLists()->size(); i++) {
         funcBody->paramLists.emplace_back(LoadFuncParamList(body.paramLists()->Get(i)));
     }
+    if (body.implicitParamList.has_value()) {
+        funcBody->implicitParamList = LoadFuncParamList(body.implicitParamList().value()->Get(i));
+    }
     bool shouldImportBody = body.always() || isInline || isConst;
     if (importSrcCode && shouldImportBody) {
         funcBody->body = LoadExpr<Block>(body.body());
