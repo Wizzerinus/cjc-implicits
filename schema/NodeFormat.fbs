@@ -531,8 +531,8 @@ table FuncBody {
   base: NodeBase;
   // paramList not support Curry Func
   param_list: FuncParamList; // FIXME
-  implicit_param_list: FuncParamList = null;
-  using_pos: Position = null;
+  implicit_param_list: FuncParamList;
+  using_pos: Position;
   arrow_pos: Position; // '=>'
   colon_pos: Position; // ':'
   ret_type: Type;
@@ -605,7 +605,7 @@ table FuncType {
   left_paren_pos: Position;
   param_types: [Type];
   right_paren_pos: Position;
-  using_type: FuncTypeUsing = null;
+  using_type: FuncTypeUsing;
   arrow_pos: Position;
   ret_type: Type;
   isC: bool;

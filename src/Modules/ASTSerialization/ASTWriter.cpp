@@ -1228,9 +1228,9 @@ TFuncBodyOffset ASTWriter::ASTWriterImpl::SaveFuncBody(const FuncBody& funcBody)
         return PackageFormat::CreateFuncBody(builder, dummyList, INVALID_FORMAT_INDEX, INVALID_FORMAT_INDEX, false, 0);
     }
     auto vparamLists = GetVirtualParamLists(funcBody);
-    std::optional<flatbuffers::Offset<PackageFormat::FuncParamList>> implicitParamList;
+    flatbuffers::Offset<PackageFormat::FuncParamList> implicitParamList = 0;
     if (funcBody.implicitParamList.has_value()) {
-        implicitParamList = SaveFuncParamList(funcBody.implicitParamList.value()->get());
+        implicitParamList = SaveFuncParamList(*funcBody.implicitParamList.value());
     }
     FormattedIndex retType = funcBody.retType ? SaveType(funcBody.retType->ty) : INVALID_FORMAT_INDEX;
     // The frozen attribute is passed to a nested function.

@@ -41,6 +41,7 @@ using AstMacroExpandDecl = Ptr<const Cangjie::AST::MacroExpandDecl>;
 using AstFuncArg = Ptr<const Cangjie::AST::FuncArg>;
 using AstFuncBody = Ptr<const Cangjie::AST::FuncBody>;
 using AstFuncParam = Ptr<const Cangjie::AST::FuncParam>;
+using AstFuncParamList = Ptr<const Cangjie::AST::FuncParamList>;
 using AstMacroExpandParam = Ptr<const Cangjie::AST::MacroExpandParam>;
 using AstBlock = Ptr<const Cangjie::AST::Block>;
 using AstStructBody = Ptr<const Cangjie::AST::StructBody>;

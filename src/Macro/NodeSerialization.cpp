@@ -453,13 +453,19 @@ flatbuffers::Offset<NodeFormat::FuncBody> NodeWriter::SerializeFuncBody(AstFuncB
         return flatbuffers::Offset<NodeFormat::FuncBody>();
     }
     auto fbNodeBaseFnBody = SerializeNodeBase(funcBody);
-    auto fbParamList = SerializeFuncParamList(paramList);
-    std::optional<OwnedPtr<FuncParamList>> fbImplicitParamList;
+    auto fbParamList = SerializeFuncParamList((funcBody->paramLists)[0].get());
+    flatbuffers::Offset<NodeFormat::FuncParamList> fbImplicitParamList = 0;
     if (funcBody->implicitParamList.has_value()) {
         fbImplicitParamList = SerializeFuncParamList(funcBody->implicitParamList.value().get());
     }
     // Serialize FuncBlock
     auto bodyPtr = (funcBody->body).get();
+    NodeFormat::Position usingPos;
+    NodeFormat::Position* usingPosPtr = nullptr;
+    if (funcBody->usingPos.has_value()) {
+        usingPos = FlatPosCreateHelper(funcBody->usingPos.value());
+        usingPosPtr = &usingPos;
+    }
     auto arrowPos = FlatPosCreateHelper(funcBody->doubleArrowPos);
     auto colonPos = FlatPosCreateHelper(funcBody->colonPos);
     auto fbRetType = SerializeType(funcBody->retType.get());
@@ -467,7 +473,7 @@ flatbuffers::Offset<NodeFormat::FuncBody> NodeWriter::SerializeFuncBody(AstFuncB
     auto fbBody = SerializeBlock(bodyPtr);
     auto fbGeneric = SerializeGeneric(funcBody->generic.get());
     return NodeFormat::CreateFuncBody(
-        builder, fbNodeBaseFnBody, fbParamList, fbImplicitParamList, &arrowPos, &colonPos, fbRetType, hasBody, fbBody, fbGeneric);
+        builder, fbNodeBaseFnBody, fbParamList, fbImplicitParamList, usingPosPtr, &arrowPos, &colonPos, fbRetType, hasBody, fbBody, fbGeneric);
 }
 
 flatbuffers::Offset<NodeFormat::DeclBase> NodeWriter::SerializeDeclBase(AstDecl decl)
@@ -625,8 +631,20 @@ flatbuffers::Offset<NodeFormat::Type> NodeWriter::SerializeFuncType(AstType type
     auto rightParenPos = FlatPosCreateHelper(funcType->rightParenPos);
     auto arrowPos = FlatPosCreateHelper(funcType->arrowPos);
     auto fbRetType = SerializeType(funcType->retType.get());
+
+    flatbuffers::Offset<NodeFormat::FuncTypeUsing> fbUsingType = 0;
+    if (funcType->usingType.has_value()) {
+        const auto& usingType = funcType->usingType.value();
+        auto fbUsingPos = FlatPosCreateHelper(usingType->usingPos);
+        auto fbUsingLparenPos = FlatPosCreateHelper(usingType->leftParenPos);
+        auto fbUsingTypeVec =
+            FlatVectorCreateHelper<NodeFormat::Type, Type, AstType>(usingType->paramTypes, &NodeWriter::SerializeType);
+        auto fbUsingRparenPos = FlatPosCreateHelper(usingType->rightParenPos);
+        fbUsingType = NodeFormat::CreateFuncTypeUsing(builder, &fbUsingPos, &fbUsingLparenPos, fbUsingTypeVec, &fbUsingRparenPos);
+    }
+
     auto fbFuncType = NodeFormat::CreateFuncType(
-        builder, fbTypeBase, &leftParenPos, fbTypeVec, &rightParenPos, &arrowPos, fbRetType, funcType->isC);
+        builder, fbTypeBase, &leftParenPos, fbTypeVec, &rightParenPos, fbUsingType, &arrowPos, fbRetType, funcType->isC);
     return NodeFormat::CreateType(builder, fbTypeBase, NodeFormat::AnyType_FUNC_TYPE, fbFuncType.Union());
 }
 
