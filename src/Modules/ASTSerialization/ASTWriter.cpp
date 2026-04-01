@@ -1225,7 +1225,8 @@ TFuncBodyOffset ASTWriter::ASTWriterImpl::SaveFuncBody(const FuncBody& funcBody)
     if (fd && fd->TestAttr(Attribute::GENERIC_INSTANTIATED, Attribute::GENERIC)) {
         std::vector<flatbuffers::Offset<PackageFormat::FuncParamList>> paramLists;
         auto dummyList = builder.CreateVector<flatbuffers::Offset<PackageFormat::FuncParamList>>(paramLists);
-        return PackageFormat::CreateFuncBody(builder, dummyList, INVALID_FORMAT_INDEX, INVALID_FORMAT_INDEX, false, 0);
+        flatbuffers::Offset<PackageFormat::FuncParamList> dummyImplicitList = 0;
+        return PackageFormat::CreateFuncBody(builder, dummyList, INVALID_FORMAT_INDEX, INVALID_FORMAT_INDEX, false, 0, dummyImplicitList);
     }
     auto vparamLists = GetVirtualParamLists(funcBody);
     flatbuffers::Offset<PackageFormat::FuncParamList> implicitParamList = 0;
@@ -1252,7 +1253,7 @@ TFuncBodyOffset ASTWriter::ASTWriterImpl::SaveFuncBody(const FuncBody& funcBody)
     auto bodyIdx = validBody ? SaveExpr(*funcBody.body) : INVALID_FORMAT_INDEX;
     // CaptureKind is need if the 'funcBody' is exported.
     uint8_t kind = validBody ? static_cast<uint8_t>(funcBody.captureKind) : 0;
-    return PackageFormat::CreateFuncBody(builder, vparamLists, implicitParamList, retType, bodyIdx, false, kind);
+    return PackageFormat::CreateFuncBody(builder, vparamLists, retType, bodyIdx, false, kind, implicitParamList);
 }
 
 TDeclOffset ASTWriter::ASTWriterImpl::SaveFuncDecl(const FuncDecl& funcDecl, const DeclInfo& declInfo)

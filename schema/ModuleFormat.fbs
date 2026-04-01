@@ -67,11 +67,11 @@ table FuncParamList {
 
 table FuncBody {
   paramLists:[FuncParamList];
-  implicitParamList:FuncParamList;
   retType:uint32;
   body:uint32; // index of body expr
   always:bool;
   captureKind:uint8;
+  implicitParamList:FuncParamList;
 }
 
 struct DeclHash {
