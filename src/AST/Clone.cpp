@@ -408,7 +408,7 @@ OwnedPtr<FuncType> ASTCloner::CloneFuncType(const FuncType& node, const VisitFun
     ret->leftParenPos = node.leftParenPos;
     ret->rightParenPos = node.rightParenPos;
     ret->arrowPos = node.arrowPos;
-    ret->usingType = node.usingType.has_value()
+    ret->usingType = !node.usingType.has_value()
         ? std::optional<OwnedPtr<FuncTypeUsing>>{}
         : CloneFuncTypeUsing(*node.usingType.value(), visitor);
     return ret;
