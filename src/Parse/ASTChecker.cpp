@@ -607,6 +607,16 @@ void ASTChecker::CheckSynchronizedExpr(Ptr<Node> node)
     ZERO_POSITION_CHECK(node, se->rightParenPos);
     AST_NULLPTR_CHECK(node, se->body);
 }
+void ASTChecker::CheckImplicitWithExpr(Ptr<Node> node)
+{
+    auto iwe = StaticAs<ASTKind::IMPLICIT_WITH_EXPR>(node);
+    ZERO_POSITION_CHECK(node, te->withPos);
+    ZERO_POSITION_CHECK(node, te->leftParenPos);
+    VEC_AST_NULLPTR_CHECK(node, te->children);
+    VEC_ZERO_POS_CHECK(node, te->commaPosVector);
+    ZERO_POSITION_CHECK(node, te->rightParenPos);
+    AST_NULLPTR_CHECK(node, se->body);
+}
 void ASTChecker::CheckThrowExpr(Ptr<Node> node)
 {
     auto te = StaticAs<ASTKind::THROW_EXPR>(node);

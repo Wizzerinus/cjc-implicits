@@ -1126,6 +1126,19 @@ VisitAction WalkerT<NodeT>::Walk(Ptr<NodeT> curNode) const
                 action = VisitAction::WALK_CHILDREN;
                 break;
             }
+            case ASTKind::IMPLICIT_WITH_EXPR: {
+                auto iwe = StaticAs<ASTKind::IMPLICIT_WITH_EXPR>(curNode);
+                for (auto& it : iwe->children) {
+                    if (Walk(it.get()) == VisitAction::STOP_NOW) {
+                        return VisitAction::STOP_NOW;
+                    }
+                }
+                if (Walk(iwe->body.get()) == VisitAction::STOP_NOW) {
+                    return VisitAction::STOP_NOW;
+                }
+                action = VisitAction::WALK_CHILDREN;
+                break;
+            }
             case ASTKind::QUOTE_EXPR: {
                 auto qe = StaticAs<ASTKind::QUOTE_EXPR>(curNode);
                 for (auto& it : qe->exprs) {

@@ -1097,6 +1097,13 @@ bool InitializationChecker::CheckInitInExpr(Ptr<Node> node)
             result = CheckInitInExpr(StaticCast<SynchronizedExpr>(node)->body.get()) && result;
             return result;
         }
+        case ASTKind::IMPLICIT_WITH_EXPR: {
+            bool result = CheckInitInExpr(StaticCast<ImplicitWithExpr>(node)->body.get());
+            for (auto& child : StaticCast<ImplicitWithExpr>(node)->children) {
+                result = result && CheckInitInExpr(child.get());
+            }
+            return result;
+        }
         case ASTKind::IS_EXPR:
             return CheckInitInExpr(StaticCast<IsExpr>(node)->leftExpr.get());
         case ASTKind::AS_EXPR:

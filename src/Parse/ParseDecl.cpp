@@ -2333,7 +2333,18 @@ OwnedPtr<FuncBody> ParserImpl::ParseFuncBody(ScopeKind scopeKind)
         ParsePropMemberBody(scopeKind, *ret);
         return ret;
     }
+    if (Seeing(TokenKind::IDENTIFIER)) {
+        // Try to parse an implicit function definition
+        const auto& tok = Peek();
+        if (tok.Value() == "using") {
+            Skip(TokenKind::IDENTIFIER);
+            ret->usingPos = lastToken.Begin();
+            ret->implicitParamList = ParseParameterList();
+        }
+    }
     if (Skip(TokenKind::COLON)) {
+        // func f(arg1: T1) : T2
+        //                  ^-- this colon
         ret->colonPos = lastToken.Begin();
         // `This` type can only be used as the return type of instance member function
         if (scopeKind == ScopeKind::CLASS_BODY && Seeing(TokenKind::THISTYPE)) {

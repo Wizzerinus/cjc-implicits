@@ -595,6 +595,7 @@ private:
         std::vector<OwnedPtr<AST::Type>> types, const Position lParenPos, const Position rParenPos) const;
     OwnedPtr<AST::ParenType> ParseParenType(
         const Position& lParenPos, const Position& rParenPos, OwnedPtr<AST::Type> type);
+    std::optional<OwnedPtr<AST::FuncTypeUsing>> ParseFuncTypeUsing();
     OwnedPtr<AST::FuncType> ParseFuncType(
         std::vector<OwnedPtr<AST::Type>> types, const Position& lParenPos, const Position& rParenPos);
     OwnedPtr<AST::Type> ParsePrefixType();
@@ -770,6 +771,7 @@ private:
         const std::set<AST::Attribute>& attributes = {}, bool isVar = false, bool inDecl = false);
     OwnedPtr<AST::SpawnExpr> ParseSpawnExpr();
     OwnedPtr<AST::SynchronizedExpr> ParseSynchronizedExpr();
+    OwnedPtr<AST::ImplicitWithExpr> ParseImplicitWithExpr();
     void ParseTopLvlFeatures(OwnedPtr<FeaturesDirective>& ftrDirective,
         PtrVector<Annotation>& annos);
     void ParseFeatureDirective(OwnedPtr<FeaturesDirective>& features);

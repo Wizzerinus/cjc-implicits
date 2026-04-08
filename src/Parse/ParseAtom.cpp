@@ -1422,6 +1422,37 @@ OwnedPtr<SynchronizedExpr> ParserImpl::ParseSynchronizedExpr()
     return ret;
 }
 
+OwnedPtr<ImplicitWithExpr> ParserImpl::ParseImplicitWithExpr()
+{
+    OwnedPtr<ImplicitWithExpr> ret = MakeOwned<ImplicitWithExpr>();
+    ret->withPos = lastToken.Begin();
+    ret->begin = lookahead.Begin();
+    if (!Skip(TokenKind::LPAREN)) {
+        ParseDiagnoseRefactor(DiagKindRefactor::parse_expected_left_paren, lookahead, ConvertToken(lookahead));
+        ret->EnableAttr(Attribute::HAS_BROKEN);
+    }
+    ret->children.push_back(ParseExpr());
+    while (true) {
+        if (Seeing(TokenKind::RPAREN)) {
+            break;
+        } else if (Skip(TokenKind::COMMA)) {
+            ret->commaPosVector.emplace_back(lastToken.Begin());
+            ret->children.push_back(ParseExpr());
+        } else {
+            ParseDiagnoseRefactor(DiagKindRefactor::parse_expected_dot_lparen, lookahead, ConvertToken(lookahead));
+            ret->EnableAttr(Attribute::HAS_BROKEN);
+        }
+    }
+    if (!Skip(TokenKind::RPAREN) && !ret->TestAttr(Attribute::HAS_BROKEN)) {
+        DiagExpectedRightDelimiter("(", ret->leftParenPos);
+        ret->EnableAttr(Attribute::HAS_BROKEN);
+    }
+    ret->rightParenPos = lastToken.Begin();
+    ret->body = ParseBlock();
+    ret->end = ret->body->end;
+    return ret;
+}
+
 OwnedPtr<Expr> ParserImpl::ParseAnnotationLambdaExpr(bool isTailClosure)
 {
     std::vector<OwnedPtr<Annotation>> annos;
