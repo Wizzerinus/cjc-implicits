@@ -64,8 +64,10 @@ ParserImpl::ExprHandler ParserImpl::LookupExprHandler(TokenKind kind)
         reinterpret_cast<ExprHandler>(&ParserImpl::ParseBreakJumpExpr),
         nullptr, nullptr, // IN, NOT_IN
         reinterpret_cast<ExprHandler>(&ParserImpl::ParseMatchExpr),
-        nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, // WHERE..OVERRIDE
-        nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, // REDEF..MUT
+        nullptr, nullptr,  // WHERE, EXTEND
+        reinterpret_cast<ExprHandler>(&ParserImpl::ParseImplicitWithExpr),
+        nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, // PROP..OVERRIDE
+        nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, // REDEF..MUT
         reinterpret_cast<ExprHandler>(&ParserImpl::ParseUnsafeBlock),
         nullptr, // OPERATOR
         reinterpret_cast<ExprHandler>(&ParserImpl::ParseSpawnExpr),
