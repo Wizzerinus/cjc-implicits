@@ -1599,6 +1599,7 @@ bool TypeChecker::TypeCheckerImpl::PreCheckFuncRedefinitionWithSameSignature(
                     visibilityMatch = false;
                 }
             }
+            // We want to emit a diagnostic if the param types are the same and implicit types may be different
             return typeManager.IsFuncParameterTypesIdentical(paramTys1, paramTys2, substituteMap) &&
                 fd->TestAttr(Attribute::STATIC) == (*it)->TestAttr(Attribute::STATIC) &&
                 fd->TestAttr(Attribute::CONSTRUCTOR) == (*it)->TestAttr(Attribute::CONSTRUCTOR) &&

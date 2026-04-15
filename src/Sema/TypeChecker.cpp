@@ -1956,6 +1956,7 @@ Ptr<Decl> TypeChecker::TypeCheckerImpl::GetImplementedTargetIfExist(
             for (auto& it : targetParamTys) {
                 it = typeManager.GetBestInstantiatedTy(it, mts);
             }
+            // TODO: emit a diagnostic if implicit parameter types are not identical
             isSameSignature = typeManager.IsFuncParameterTypesIdentical(memberParamTys, targetParamTys);
         } else if (member->astKind == ASTKind::PROP_DECL && target.astKind == ASTKind::PROP_DECL) {
             if (!IsOverrideOrShadow(typeManager, *RawStaticCast<PropDecl*>(member), static_cast<PropDecl&>(target))) {

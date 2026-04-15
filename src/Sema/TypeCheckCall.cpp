@@ -760,6 +760,8 @@ bool TypeChecker::TypeCheckerImpl::CompareFuncCandidates(
         // When both candidates are member functions and they have the same size of parameters and function signatures,
         // resolve them by deciding whether one is implementing the other.
         bool sameNumberOfParams = j.fd.ty->typeArgs.size() == i.fd.ty->typeArgs.size();
+        // TODO: emit a diagnostic if the interfaces require different sets of implicits
+        // because inheritance must preserve the function type or weaken it, but sets of implicits are invariant
         if (sameNumberOfParams && typeManager.IsFuncParameterTypesIdentical(i.tysInArgOrder, j.tysInArgOrder)) {
             bool isJImplementable =
                 j.fd.outerDecl->astKind == ASTKind::INTERFACE_DECL || j.fd.TestAttr(Attribute::ABSTRACT);
@@ -1700,6 +1702,9 @@ void TypeChecker::TypeCheckerImpl::RemoveShadowedFunc(
         }
         auto targetTy = DynamicCast<FuncTy*>(target->ty);
         auto targetParamTys = targetTy ? targetTy->paramTys : GetParamTys(*target);
+        // We want to remove functions if their parameter sets are the same,
+        // even if the implicits differ, because otherwise we'll get two identical functions
+        // that we can't apply overloads to.
         return typeManager.IsFuncParameterTypesIdentical(targetParamTys, paramTys);
     };
     funcs.erase(std::remove_if(funcs.begin(), funcs.end(), isFuncSignatureSame), funcs.end());
@@ -1768,6 +1773,7 @@ void TypeChecker::TypeCheckerImpl::FilterExtendImplAbstractFunc(std::vector<Ptr<
             auto funcTy1 = StaticCast<FuncTy*>(typeManager.GetInstantiatedTy(fd1->ty, typeMapping));
             auto funcTy2 = StaticCast<FuncTy*>(fd2->ty);
             if (typeManager.IsFuncParameterTypesIdentical(funcTy1->paramTys, funcTy2->paramTys) &&
+                typeManager.IsFuncParameterTypesIdentical(funcTy1->implicitParamTys, funcTy2->implicitParamTys) &&
                 typeManager.IsSubtype(funcTy2->retTy, funcTy1->retTy)) {
                 implementedOrOverridenFuncs.insert(fd1);
             }

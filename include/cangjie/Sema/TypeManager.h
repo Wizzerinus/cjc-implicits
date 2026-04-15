@@ -73,7 +73,7 @@ public:
     Ptr<AST::RefEnumTy> GetRefEnumTy(AST::EnumDecl& ed, const std::vector<Ptr<AST::Ty>>& typeArgs);
     Ptr<AST::StructTy> GetStructTy(AST::StructDecl& sd, const std::vector<Ptr<AST::Ty>>& typeArgs);
     Ptr<AST::TupleTy> GetTupleTy(const std::vector<Ptr<AST::Ty>>& typeArgs, bool isClosureTy = false);
-    Ptr<AST::FuncTy> GetFunctionTy(const std::vector<Ptr<AST::Ty>>& paramTys, Ptr<AST::Ty> retTy,
+    Ptr<AST::FuncTy> GetFunctionTy(const std::vector<Ptr<AST::Ty>>& paramTys, const std::vector<Ptr<AST::Ty>>& implicitParamTys, Ptr<AST::Ty> retTy,
         AST::FuncTy::Config cfg = {false, false, false, false});
 
     Ptr<AST::ArrayTy> GetArrayTy(Ptr<AST::Ty> elemTy, unsigned int dims);
