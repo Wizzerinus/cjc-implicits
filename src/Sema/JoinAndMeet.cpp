@@ -190,6 +190,13 @@ Ptr<AST::Ty> JoinAndMeet::JoinOrMeetFuncTy(const DualMode& mode, const std::set<
         default:
             break;
     }
+    // Implicit params are invariant, so the LUB/GLB exists only when every input agrees on them.
+    const auto& implicitParamTys = RawStaticCast<FuncTy*>(*tys.begin())->implicitParamTys;
+    for (auto ty : tys) {
+        if (!tyMgr.IsFuncParameterTypesIdentical(implicitParamTys, RawStaticCast<FuncTy*>(ty)->implicitParamTys)) {
+            return mode.bound;
+        }
+    }
     size_t paramCnt = RawStaticCast<FuncTy*>(*tys.begin())->paramTys.size();
     std::vector<Ptr<Ty>> paramTys(paramCnt);
     for (size_t i = 0; i < paramCnt; i++) {
@@ -205,8 +212,7 @@ Ptr<AST::Ty> JoinAndMeet::JoinOrMeetFuncTy(const DualMode& mode, const std::set<
     }
     auto retTy = mode.coFunc(operandRetTys);
     if (Ty::AreTysCorrect(paramTys) && Ty::IsTyCorrect(retTy)) {
-        // TODO: implicit params — Join/Meet of FuncTys ignores implicit params.
-        auto resultTy = tyMgr.GetFunctionTy(paramTys, {}, retTy);
+        auto resultTy = tyMgr.GetFunctionTy(paramTys, implicitParamTys, retTy);
         CJC_NULLPTR_CHECK(resultTy);
         for (auto ty : tys) {
             if (!mode.coSubtyFunc(ty, resultTy)) {
