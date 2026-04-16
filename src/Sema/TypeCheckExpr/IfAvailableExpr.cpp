@@ -103,7 +103,7 @@ Ptr<Ty> TypeChecker::TypeCheckerImpl::SynIfAvailableExpr(ASTContext& ctx, IfAvai
             iae.GetArg()->name.Val());
         res = false;
     }
-    auto targetTy = typeManager.GetFunctionTy({}, typeManager.GetPrimitiveTy(TypeKind::TYPE_UNIT));
+    auto targetTy = typeManager.GetFunctionTy({}, {}, typeManager.GetPrimitiveTy(TypeKind::TYPE_UNIT));
     res = Check(ctx, targetTy, iae.GetLambda1()) && res;
     res = Check(ctx, targetTy, iae.GetLambda2()) && res;
     if (!res) {

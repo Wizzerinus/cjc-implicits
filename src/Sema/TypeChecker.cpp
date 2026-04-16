@@ -249,18 +249,21 @@ bool TypeChecker::TypeCheckerImpl::CheckNormalFuncBody(ASTContext& ctx, FuncBody
     bool isCFunc =
         fb.TestAttr(Attribute::C) || (fb.funcDecl && fb.funcDecl->TestAttr(Attribute::FOREIGN) && isCFFIBackend);
     bool hasVariableLenArg = (fb.funcDecl && fb.funcDecl->hasVariableLenArg) || fb.paramLists[0]->hasVariableLenArg;
+    auto implicitParamTys = GetFuncBodyImplicitParamTys(fb);
     // Check and update return type for foreign functions.
     if (!Ty::IsTyCorrect(fb.retType->ty)) {
         if (!fb.TestAttr(Attribute::IS_CHECK_VISITED)) {
             fb.EnableAttr(Attribute::IS_CHECK_VISITED); // Avoid re-enter funcDecl check, when function is invalid.
             Synthesize(ctx, fb.body.get());             // Synthesize for other decl/expr in function body.
         }
-        fb.ty = typeManager.GetFunctionTy(paramTys, fb.retType->ty, {isCFunc, false, hasVariableLenArg});
+        fb.ty = typeManager.GetFunctionTy(
+            paramTys, implicitParamTys, fb.retType->ty, {isCFunc, false, hasVariableLenArg});
         return false;
     }
 
     // Set funcTy before Synthesize body, avoid recursively call typecheck loop.
-    auto funcTy = typeManager.GetFunctionTy(paramTys, fb.retType->ty, {isCFunc, false, hasVariableLenArg});
+    auto funcTy =
+        typeManager.GetFunctionTy(paramTys, implicitParamTys, fb.retType->ty, {isCFunc, false, hasVariableLenArg});
     if (fb.funcDecl) {
         fb.funcDecl->ty = funcTy;
     }
@@ -268,7 +271,8 @@ bool TypeChecker::TypeCheckerImpl::CheckNormalFuncBody(ASTContext& ctx, FuncBody
 
     if (!CheckBodyRetType(ctx, fb)) {
         // Update 'fb.ty' witch updated 'fb.retType->ty'.
-        fb.ty = typeManager.GetFunctionTy(paramTys, fb.retType->ty, {isCFunc, false, hasVariableLenArg});
+        fb.ty = typeManager.GetFunctionTy(
+            paramTys, implicitParamTys, fb.retType->ty, {isCFunc, false, hasVariableLenArg});
         return false;
     }
 
@@ -276,7 +280,7 @@ bool TypeChecker::TypeCheckerImpl::CheckNormalFuncBody(ASTContext& ctx, FuncBody
         UnsafeCheck(fb);
     }
 
-    funcTy = typeManager.GetFunctionTy(paramTys, fb.retType->ty, {isCFunc, false, hasVariableLenArg});
+    funcTy = typeManager.GetFunctionTy(paramTys, implicitParamTys, fb.retType->ty, {isCFunc, false, hasVariableLenArg});
     // Update funcDecl's type after body is checked.
     if (fb.funcDecl) {
         fb.funcDecl->ty = funcTy;
@@ -470,7 +474,7 @@ void TypeChecker::TypeCheckerImpl::CheckCtorFuncBody(ASTContext& ctx, FuncBody& 
     }
     CheckFuncParamList(ctx, *fb.paramLists[0].get());
     auto paramTys = GetFuncBodyParamTys(fb);
-    fb.ty = typeManager.GetFunctionTy(paramTys, ctorTy);
+    fb.ty = typeManager.GetFunctionTy(paramTys, GetFuncBodyImplicitParamTys(fb), ctorTy);
     fb.funcDecl->ty = fb.ty;
     fb.retType->ty = ctorTy;
     Synthesize(ctx, fb.body.get());

@@ -193,7 +193,7 @@ bool TypeChecker::TypeCheckerImpl::ChkHandler(ASTContext& ctx, Handler& handler,
     }
     std::vector<Ptr<Ty>> args;
     args.emplace_back(cmdTy);
-    Ptr<Ty> handleLambdaTy = typeManager.GetFunctionTy(args, &tgtTy);
+    Ptr<Ty> handleLambdaTy = typeManager.GetFunctionTy(args, {}, &tgtTy);
     if (!Check(ctx, handleLambdaTy, handler.desugaredLambda)) {
         DiagMismatchedTypes(diag, *handler.desugaredLambda->funcBody->body, tgtTy);
         return false;
@@ -219,7 +219,7 @@ bool TypeChecker::TypeCheckerImpl::ChkTryExpr(ASTContext& ctx, Ty& tgtTy, TryExp
     if (!te.handlers.empty()) {
         // Careful: if there are handlers, then the body of the try is empty because we turned
         // it into a lambda during parsing
-        auto tryLambdaTy = typeManager.GetFunctionTy({}, &tgtTy);
+        auto tryLambdaTy = typeManager.GetFunctionTy({}, {}, &tgtTy);
         if (!te.tryLambda || !Check(ctx, tryLambdaTy, te.tryLambda)) {
             isWellTyped = false;
             if (!CanSkipDiag(*te.tryBlock) && !typeManager.IsSubtype(te.tryBlock->ty, &tgtTy)) {
@@ -276,7 +276,7 @@ bool TypeChecker::TypeCheckerImpl::ChkTryExprFinallyBlock(ASTContext& ctx, const
     } else {
         isWellTyped = Ty::IsTyCorrect(Synthesize(ctx, te.finallyBlock.get())) && isWellTyped;
         if (!te.handlers.empty() && te.finallyLambda) {
-            auto finallyLamTy = typeManager.GetFunctionTy({}, TypeManager::GetPrimitiveTy(TypeKind::TYPE_UNIT));
+            auto finallyLamTy = typeManager.GetFunctionTy({}, {}, TypeManager::GetPrimitiveTy(TypeKind::TYPE_UNIT));
             isWellTyped = Check(ctx, finallyLamTy, te.finallyLambda) && isWellTyped;
         }
     }

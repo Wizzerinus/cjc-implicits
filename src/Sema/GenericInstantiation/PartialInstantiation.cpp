@@ -1813,13 +1813,17 @@ Ptr<Ty> TyGeneralizer::Generalize(Ty& ty)
     switch (ty.kind) {
         case TypeKind::TYPE_FUNC: {
             std::vector<Ptr<Ty>> paramTys;
+            std::vector<Ptr<Ty>> implicitParamTys;
             auto& funcTy = static_cast<FuncTy&>(ty);
             for (auto& it : funcTy.paramTys) {
                 paramTys.push_back(Generalize(it));
             }
+            for (auto& it : funcTy.implicitParamTys) {
+                implicitParamTys.push_back(Generalize(it));
+            }
             auto retType = Generalize(funcTy.retTy);
-            Ptr<Ty> ret = tyMgr.GetFunctionTy(
-                paramTys, retType, {funcTy.IsCFunc(), funcTy.isClosureTy, funcTy.hasVariableLenArg});
+            Ptr<Ty> ret = tyMgr.GetFunctionTy(paramTys, implicitParamTys, retType,
+                {funcTy.IsCFunc(), funcTy.isClosureTy, funcTy.hasVariableLenArg});
             return ret;
         }
         case TypeKind::TYPE_TUPLE: {

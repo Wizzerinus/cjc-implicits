@@ -367,8 +367,9 @@ void ASTLoader::ASTLoaderImpl::SetTypeTy(FormattedIndex type, const PackageForma
     } else if constexpr (std::is_same_v<TypeT, FuncTy>) {
         auto info = typeObj.info_as_FuncTyInfo();
         CJC_NULLPTR_CHECK(info);
+        // TODO: implicit params — extend the serialized FuncTyInfo to round-trip implicitParamTys.
         ty = typeManager.GetFunctionTy(
-            LoadTypeArgs(typeObj), LoadType(info->retType()), {info->isC(), false, info->hasVariableLenArg()});
+            LoadTypeArgs(typeObj), {}, LoadType(info->retType()), {info->isC(), false, info->hasVariableLenArg()});
     } else {
         auto info = typeObj.info_as_CompositeTyInfo();
         CJC_NULLPTR_CHECK(info);

@@ -434,8 +434,8 @@ void MockSupportManager::PrepareStaticDecl(Decl& decl)
     auto toStrArrayTy = typeManager.GetStructTy(*mockUtils->arrayDecl, { mockUtils->toStringDecl->ty });
     auto objectTy = typeManager.GetClassTy(*mockUtils->objectDecl, {});
     auto funcTy = isMethod
-        ? typeManager.GetFunctionTy({objectTy, arrayTy, toStrArrayTy}, optionFuncRetTy)
-        : typeManager.GetFunctionTy({arrayTy, toStrArrayTy}, optionFuncRetTy);
+        ? typeManager.GetFunctionTy({objectTy, arrayTy, toStrArrayTy}, {}, optionFuncRetTy)
+        : typeManager.GetFunctionTy({arrayTy, toStrArrayTy}, {}, optionFuncRetTy);
     auto optionFuncTy = typeManager.GetEnumTy(*mockUtils->optionDecl, { funcTy });
     auto optionFunc = mockUtils->GetInstantiatedDecl(optionFuncTy->decl, {funcTy}, IS_GENERIC_INSTANTIATION_ENABLED);
     auto noneCtor = CreateRefExpr(*LookupEnumMember(optionFunc, OPTION_NONE_CTOR));
@@ -1190,8 +1190,8 @@ OwnedPtr<FuncDecl> MockSupportManager::GenerateVarDeclAccessor(VarDecl& fieldDec
     auto isGetter = mockUtils->IsGeneratedGetter(kind);
 
     FuncTy* accessorTy = isGetter ?
-        typeManager.GetFunctionTy({}, fieldDecl.ty) :
-        typeManager.GetFunctionTy({fieldDecl.ty}, TypeManager::GetPrimitiveTy(TypeKind::TYPE_UNIT));
+        typeManager.GetFunctionTy({}, {}, fieldDecl.ty) :
+        typeManager.GetFunctionTy({fieldDecl.ty}, {}, TypeManager::GetPrimitiveTy(TypeKind::TYPE_UNIT));
     std::vector<OwnedPtr<Node>> body;
     std::vector<OwnedPtr<FuncParam>> accessorParams {};
 
@@ -1372,7 +1372,7 @@ void MockSupportManager::TransformAccessorCallForMutOperation(
             std::move(paramLists),
             MockUtils::CreateType<Type>(replacedNre.ty), CreateBlock(std::move(nodes), ty), ty)
     );
-    lambda->ty = typeManager.GetFunctionTy({}, ty);
+    lambda->ty = typeManager.GetFunctionTy({}, {}, ty);
     lambda->funcBody->ty = lambda->ty;
 
     topLevelExpr.desugarExpr = CreateCallExpr(std::move(lambda), {}, nullptr, ty);
@@ -1592,10 +1592,11 @@ OwnedPtr<CallExpr> MockSupportManager::GenerateAccessorCallForField(
     accessorMemberAccess->callOrPattern = accessorCall.get();
 
     if (kind == AccessorKind::FIELD_GETTER) {
-        accessorMemberAccess->ty = typeManager.GetFunctionTy({}, maTy);
+        accessorMemberAccess->ty = typeManager.GetFunctionTy({}, {}, maTy);
         accessorCall->ty = maTy;
     } else {
-        accessorMemberAccess->ty = typeManager.GetFunctionTy({maTy}, TypeManager::GetPrimitiveTy(TypeKind::TYPE_UNIT));
+        accessorMemberAccess->ty =
+            typeManager.GetFunctionTy({maTy}, {}, TypeManager::GetPrimitiveTy(TypeKind::TYPE_UNIT));
         accessorCall->ty = TypeManager::GetPrimitiveTy(TypeKind::TYPE_UNIT);
     }
 

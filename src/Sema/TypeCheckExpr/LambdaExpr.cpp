@@ -353,7 +353,8 @@ bool TypeChecker::TypeCheckerImpl::ChkLamExpr(ASTContext& ctx, Ty& target, Lambd
         if (ChkLamBody(ctx, *le.funcBody) && paramsMatched) {
             ds.ReportDiag();
             // The call to GetFunctionTy is necessary to create (cached) CPointer types if necessary.
-            le.funcBody->ty = typeManager.GetFunctionTy(lamParamTys, StaticCast<FuncTy*>(le.funcBody->ty)->retTy,
+            le.funcBody->ty = typeManager.GetFunctionTy(lamParamTys, GetFuncBodyImplicitParamTys(*le.funcBody),
+                StaticCast<FuncTy*>(le.funcBody->ty)->retTy,
                 {tgtTy->isC, tgtTy->isClosureTy, tgtTy->hasVariableLenArg});
             le.ty = le.funcBody->ty;
             return true;

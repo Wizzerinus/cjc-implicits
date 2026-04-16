@@ -46,7 +46,7 @@ Ptr<FuncTy> GetNativeFuncTy(const std::vector<OwnedPtr<FuncParam>>& params,
     for (auto& param : params) {
         funcTyParams.push_back(toJni(*param));
     }
-    return typeManager.GetFunctionTy(funcTyParams, jniRet, {.isC = true});
+    return typeManager.GetFunctionTy(funcTyParams, {}, jniRet, {.isC = true});
 }
 
 size_t GetCtorId(const FuncDecl& ctor)
@@ -448,7 +448,7 @@ OwnedPtr<FuncDecl> JavaDesugarManager::GenerateJavaImplConstructor(FuncDecl& sam
     for (auto paramTy : StaticCast<FuncTy*>(sampleCtor.ty.get())->paramTys) {
         paramTys.push_back(paramTy);
     }
-    auto ctorTy = typeManager.GetFunctionTy(paramTys, StaticCast<FuncTy*>(sampleCtor.ty.get())->retTy);
+    auto ctorTy = typeManager.GetFunctionTy(paramTys, {}, StaticCast<FuncTy*>(sampleCtor.ty.get())->retTy);
 
     auto superCall = CreateSuperCall(*sampleCtor.outerDecl, *parentCtor, parentCtor->ty);
     superCall->args.push_back(CreateFuncArg(std::move(entityParamRef)));
@@ -640,7 +640,7 @@ OwnedPtr<Decl> JavaDesugarManager::GenerateNativeDeleteCjObjectFunc(ClassLikeDec
 
     std::vector<Ptr<Ty>> lambdaParamTys;
     lambdaParamTys.push_back(javaImpl.ty);
-    lambda->ty = typeManager.GetFunctionTy(lambdaParamTys, javaEntityDecl->ty);
+    lambda->ty = typeManager.GetFunctionTy(lambdaParamTys, {}, javaEntityDecl->ty);
 
     auto deleteCjObjCall = lib.CreateDeleteCJObjectCall(
         WithinFile(CreateRefExpr(*jniEnvPtrParam), curFile), std::move(selfParamRef), std::move(lambda), javaImpl.ty);

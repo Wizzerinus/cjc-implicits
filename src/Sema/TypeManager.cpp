@@ -2358,7 +2358,8 @@ Ptr<Ty> TypeManager::SubstituteTypeArgs(Ptr<Ty> baseTy, std::vector<Ptr<Ty>>& ty
             auto returnTy = typeArgs.back();
             typeArgs.pop_back();
             auto funcTy = StaticCast<FuncTy>(baseTy);
-            return GetFunctionTy(typeArgs, returnTy, {funcTy->isC, false, funcTy->hasVariableLenArg});
+            return GetFunctionTy(
+                typeArgs, funcTy->implicitParamTys, returnTy, {funcTy->isC, false, funcTy->hasVariableLenArg});
         }
         case TypeKind::TYPE: {
             return baseTy;
@@ -2462,7 +2463,7 @@ Ptr<Ty> TypeManager::ObtainsAliasType(Ptr<const Node> node)
                 params.emplace_back(ObtainsAliasType(param.get()));
             }
             auto retTy = ObtainsAliasType(ft->retType.get());
-            ret = GetFunctionTy(params, retTy, {ft->isC, false, fTy->hasVariableLenArg});
+            ret = GetFunctionTy(params, fTy->implicitParamTys, retTy, {ft->isC, false, fTy->hasVariableLenArg});
             break;
         }
         case ASTKind::TUPLE_TYPE: {
@@ -2563,7 +2564,8 @@ Ptr<AST::Ty> TypeManager::SubstituteTypeAliasInTy(AST::Ty& ty, bool needSubstitu
             auto returnTy = typeArgs.back();
             typeArgs.pop_back();
             auto& funcTy = static_cast<FuncTy&>(ty);
-            return GetFunctionTy(typeArgs, returnTy, {funcTy.isC, false, funcTy.hasVariableLenArg});
+            return GetFunctionTy(
+                typeArgs, funcTy.implicitParamTys, returnTy, {funcTy.isC, false, funcTy.hasVariableLenArg});
         }
         case TypeKind::TYPE: {
             return GetUnaliasedTypeFromTypeAlias(

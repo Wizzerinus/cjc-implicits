@@ -159,7 +159,7 @@ OwnedPtr<LambdaExpr> WrapReturningLambdaExpr(
     retExpr->refFuncBody = lambda->funcBody.get();
     lambda->funcBody->body->body.push_back(std::move(retExpr));
     lambda->curFile = curFile;
-    lambda->ty = typeManager.GetFunctionTy(std::move(lambdaParamTys), retTy);
+    lambda->ty = typeManager.GetFunctionTy(std::move(lambdaParamTys), {}, retTy);
     return lambda;
 }
 
@@ -401,7 +401,7 @@ Ptr<Ty> GetGenericInstTy(const GenericConfigInfo* config, const Ptr<Ty>& generic
                     paramTys.push_back(paramTy);
                 }
             }
-            auto actualFuncTy = typeManager.GetFunctionTy(paramTys, retTy);
+            auto actualFuncTy = typeManager.GetFunctionTy(paramTys, {}, retTy);
             return actualFuncTy;
         }
         case TypeKind::TYPE_TUPLE: {
@@ -505,7 +505,7 @@ void ReplaceGenericTyForFunc(Ptr<FuncDecl> funcDecl, GenericConfigInfo* genericC
             tmpTypeArgs.push_back(typeArg);
         }
     }
-    auto funcTy = typeManager.GetFunctionTy(tmpParamTys, funcDecl->funcBody->retType->ty);
+    auto funcTy = typeManager.GetFunctionTy(tmpParamTys, {}, funcDecl->funcBody->retType->ty);
     funcTy->typeArgs = tmpTypeArgs;
     funcDecl->ty = funcTy;
 }

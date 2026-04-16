@@ -93,7 +93,7 @@ OwnedPtr<Expr> Utils::CreateOptionSomeRef(Ptr<Ty> ty)
 {
     auto someDeclRef = CreateRefExpr(*GetOptionSomeDecl());
     auto optionActualTy = GetOptionTy(ty);
-    someDeclRef->ty = typeManager.GetFunctionTy({ty}, optionActualTy);
+    someDeclRef->ty = typeManager.GetFunctionTy({ty}, {}, optionActualTy);
     return someDeclRef;
 }
 
@@ -745,7 +745,7 @@ std::string Utils::GetParamJavaSignature(const Ptr<Ty> ty, std::string fullPacka
 
 std::string Utils::GetJavaTypeSignature(Ty& retTy, const std::vector<Ptr<Ty>>& params, std::string fullPackageName)
 {
-    return GetJavaTypeSignature(*typeManager.GetFunctionTy(params, &retTy), fullPackageName);
+    return GetJavaTypeSignature(*typeManager.GetFunctionTy(params, {}, &retTy), fullPackageName);
 }
 
 std::string GetMangledJniInitCjObjectFuncName(

@@ -82,7 +82,9 @@ void TypeChecker::TypeCheckerImpl::CheckFuncDecl(ASTContext& ctx, FuncDecl& fd)
         // NOTE: Error's for synthesized quest ty must be reported in 'CheckBodyRetType',
         // otherwise it means funcBody contains broken nodes.
         // Update return type to invalid, keep 'fd''s type in funcTy format.
-        fd.ty = typeManager.GetFunctionTy(RawStaticCast<FuncTy*>(fd.ty)->paramTys, TypeManager::GetInvalidTy());
+        auto fdFuncTy = RawStaticCast<FuncTy*>(fd.ty);
+        fd.ty =
+            typeManager.GetFunctionTy(fdFuncTy->paramTys, fdFuncTy->implicitParamTys, TypeManager::GetInvalidTy());
     }
     // NOTE: 'fd''s type should only be updated inside 'CheckFuncBody' not here.
     if (fd.TestAttr(AST::Attribute::MAIN_ENTRY)) {
@@ -524,7 +526,7 @@ void TypeChecker::TypeCheckerImpl::SetEnumEleTyHandleFuncDecl(FuncDecl& funcDecl
         param->ty = ty;
         paramTys.emplace_back(ty);
     }
-    auto ctorTy = typeManager.GetFunctionTy(paramTys, funcDecl.outerDecl->ty);
+    auto ctorTy = typeManager.GetFunctionTy(paramTys, {}, funcDecl.outerDecl->ty);
     funcDecl.funcBody->ty = ctorTy;
     funcDecl.ty = ctorTy;
     funcDecl.funcBody->retType = MakeOwned<RefType>();

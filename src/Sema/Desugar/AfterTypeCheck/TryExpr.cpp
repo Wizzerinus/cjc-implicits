@@ -274,7 +274,7 @@ void TypeChecker::TypeCheckerImpl::DesugarTryWithResourcesExpr(ASTContext& ctx, 
     CJC_NULLPTR_CHECK(optionDecl);
     auto noneTy = typeManager.GetEnumTy(*optionDecl, {exceptionDecl->ty});
     CJC_NULLPTR_CHECK(noneTy);
-    auto someTy = typeManager.GetFunctionTy({exceptionDecl->ty}, noneTy);
+    auto someTy = typeManager.GetFunctionTy({exceptionDecl->ty}, {}, noneTy);
     auto unitTy = TypeManager::GetPrimitiveTy(TypeKind::TYPE_UNIT);
     // try-with-resources expression is of type Unit.
     if (!typeManager.IsSubtype(te.tryBlock->ty, unitTy)) {

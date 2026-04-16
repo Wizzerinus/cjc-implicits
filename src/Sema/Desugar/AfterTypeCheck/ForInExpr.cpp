@@ -613,7 +613,7 @@ void TypeChecker::TypeCheckerImpl::ReArrangeForInIterExpr(ASTContext& ctx, ForIn
     auto someRef = MakeOwnedNode<RefExpr>();
     someRef->ref.identifier = OPTION_VALUE_CTOR;
     someRef->ref.target = LookupEnumMember(optionDecl, OPTION_VALUE_CTOR);
-    someRef->ty = typeManager.GetFunctionTy(somePattern->ty->typeArgs, somePattern->ty);
+    someRef->ty = typeManager.GetFunctionTy(somePattern->ty->typeArgs, {}, somePattern->ty);
     somePattern->constructor = std::move(someRef);
     somePattern->patterns.emplace_back(std::move(forInExpr.pattern));
     forInExpr.pattern = std::move(somePattern);
@@ -706,7 +706,7 @@ void TypeChecker::TypeCheckerImpl::DesugarForInIter(ASTContext& ctx, AST::ForInE
 
     // To : case Some(v) => match (v) { case pat if e2 => b; case _ => continue}
     auto caseSome = CreateSomeCaseForForInIter(optionDecl, *whileExpr,
-        typeManager.GetFunctionTy(matchExpr->selector->ty->typeArgs, matchExpr->selector->ty), forInExpr);
+        typeManager.GetFunctionTy(matchExpr->selector->ty->typeArgs, {}, matchExpr->selector->ty), forInExpr);
     matchExpr->matchCases.push_back(std::move(caseSome));
 
     whileExpr->body = MakeOwnedNode<Block>();

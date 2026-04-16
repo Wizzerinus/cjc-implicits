@@ -164,6 +164,7 @@ void DesugarMirrors::DesugarTopLevelFunc(InteropContext& ctx, FuncDecl& func)
         [&ctx](auto& paramTy) { return ctx.typeMapper.Cj2CType(paramTy); });
     auto cFuncTy = ctx.typeManager.GetFunctionTy(
         cParamTys,
+        {},
         ctx.typeMapper.Cj2CType(methodTy->retTy),
         FuncTy::Config { .isC = true }
     );

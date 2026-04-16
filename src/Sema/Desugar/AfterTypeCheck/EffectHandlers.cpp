@@ -869,10 +869,11 @@ void TypeChecker::TypeCheckerImpl::CreateSetHandler(
             CJC_NULLPTR_CHECK(resultDecl);
             auto resultDeclTy = typeManager.GetEnumTy(*resultDecl, {handler.commandResultTy});
 
-            handlerLambda->ty =
-                typeManager.GetFunctionTy(DynamicCast<FuncTy*>(handlerLambda->ty)->paramTys, resultDeclTy);
-            handlerLambda->funcBody->ty =
-                typeManager.GetFunctionTy(DynamicCast<FuncTy*>(handlerLambda->ty)->paramTys, resultDeclTy);
+            auto origHandlerFuncTy = DynamicCast<FuncTy*>(handlerLambda->ty);
+            handlerLambda->ty = typeManager.GetFunctionTy(
+                origHandlerFuncTy->paramTys, origHandlerFuncTy->implicitParamTys, resultDeclTy);
+            handlerLambda->funcBody->ty = typeManager.GetFunctionTy(
+                origHandlerFuncTy->paramTys, origHandlerFuncTy->implicitParamTys, resultDeclTy);
             handlerLambda->funcBody->retType = CreateRefType(*resultDeclTy->decl);
 
             // Like in createFrame, we can't just pass the lambda to `setHandler`
@@ -1067,10 +1068,10 @@ void TypeChecker::TypeCheckerImpl::DesugarImmediateResume(ASTContext& ctx, AST::
 
         OwnedPtr<RefExpr> wrapperFnRef;
         if (typeManager.IsSubtype(re.throwingExpr->ty, exceptionDecl->ty)) {
-            auto excTy = typeManager.GetFunctionTy({exceptionDecl->ty}, resultDeclTy);
+            auto excTy = typeManager.GetFunctionTy({exceptionDecl->ty}, {}, resultDeclTy);
             wrapperFnRef = CreateRefExc(*excTy);
         } else if (typeManager.IsSubtype(re.throwingExpr->ty, errorDecl->ty)) {
-            auto excTy = typeManager.GetFunctionTy({errorDecl->ty}, resultDeclTy);
+            auto excTy = typeManager.GetFunctionTy({errorDecl->ty}, {}, resultDeclTy);
             wrapperFnRef = CreateRefErr(*excTy);
         }
         CJC_NULLPTR_CHECK(wrapperFnRef);
@@ -1086,7 +1087,7 @@ void TypeChecker::TypeCheckerImpl::DesugarImmediateResume(ASTContext& ctx, AST::
         returnExpr->expr = std::move(wrappedExc);
         desugared = std::move(returnExpr);
     } else {
-        auto valTy = typeManager.GetFunctionTy({re.enclosing.value()->commandResultTy}, resultDeclTy);
+        auto valTy = typeManager.GetFunctionTy({re.enclosing.value()->commandResultTy}, {}, resultDeclTy);
 
         std::vector<OwnedPtr<FuncArg>> args;
         if (re.withExpr) {

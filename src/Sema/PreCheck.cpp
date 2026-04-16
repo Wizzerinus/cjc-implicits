@@ -475,7 +475,7 @@ Ptr<Ty> TypeChecker::TypeCheckerImpl::GetTyFromASTCFuncType(ASTContext& ctx, Ref
     }
     Ptr<Ty> retTy = funcType->retType->ty = GetTyFromASTType(ctx, funcType->retType.get());
     funcType->ty = GetTyFromASTType(ctx, funcType);
-    return typeManager.GetFunctionTy(std::move(paramTys), retTy, {.isC = true});
+    return typeManager.GetFunctionTy(std::move(paramTys), {}, retTy, {.isC = true});
 }
 
 Ptr<Ty> TypeChecker::TypeCheckerImpl::GetTyFromASTType(ASTContext& ctx, QualifiedType& qt)
@@ -598,7 +598,7 @@ Ptr<Ty> TypeChecker::TypeCheckerImpl::GetTyFromASTType(ASTContext& ctx, FuncType
     if (!funcType.retType->ty) {
         return TypeManager::GetInvalidTy();
     }
-    funcType.ty = typeManager.GetFunctionTy(paramTys, funcType.retType->ty, {funcType.isC});
+    funcType.ty = typeManager.GetFunctionTy(paramTys, {}, funcType.retType->ty, {funcType.isC});
     return funcType.ty;
 }
 
@@ -701,7 +701,7 @@ Ptr<AST::Ty> TypeChecker::TypeCheckerImpl::GetBuiltinCFuncType(const std::vector
     // the return type is CFunc<T>
     CJC_ASSERT(typeArgs.size() == 1 && Ty::IsTyCorrect(typeArgs[0]));
     return typeManager.GetFunctionTy(
-        typeArgs, typeArgs[0], {.isC = true, .isClosureTy = false, .hasVariableLenArg = false, .noCast = false});
+        typeArgs, {}, typeArgs[0], {.isC = true, .isClosureTy = false, .hasVariableLenArg = false, .noCast = false});
 }
 
 std::vector<Ptr<Ty>> TypeChecker::TypeCheckerImpl::GetTyFromASTType(
@@ -1786,7 +1786,7 @@ void TypeChecker::TypeCheckerImpl::PreSetDeclType(const ASTContext& ctx)
             retTy = fd->TestAttr(Attribute::STATIC)
                 ? TypeManager::GetPrimitiveTy(TypeKind::TYPE_UNIT)
                 : (fd->outerDecl && fd->outerDecl->IsNominalDecl() ? fd->outerDecl->ty : TypeManager::GetInvalidTy());
-            fd->ty = typeManager.GetFunctionTy(paramTys, retTy);
+            fd->ty = typeManager.GetFunctionTy(paramTys, GetFuncBodyImplicitParamTys(*fd->funcBody), retTy);
             continue;
         }
         if (fd->funcBody->retType) {
@@ -1798,7 +1798,8 @@ void TypeChecker::TypeCheckerImpl::PreSetDeclType(const ASTContext& ctx)
             fd->funcBody->TestAttr(Attribute::C) || (fd->TestAttr(Attribute::FOREIGN) && IsUnsafeBackend(backendType));
         bool hasVariableLenArg = fd->hasVariableLenArg ||
             (!fd->funcBody->paramLists.empty() && fd->funcBody->paramLists[0]->hasVariableLenArg);
-        fd->ty = typeManager.GetFunctionTy(paramTys, retTy, {isCFunc, false, hasVariableLenArg});
+        fd->ty = typeManager.GetFunctionTy(
+            paramTys, GetFuncBodyImplicitParamTys(*fd->funcBody), retTy, {isCFunc, false, hasVariableLenArg});
         if (fd->TestAttr(Attribute::IS_CHECK_VISITED)) {
             fd->funcBody->ty = fd->ty;
         }

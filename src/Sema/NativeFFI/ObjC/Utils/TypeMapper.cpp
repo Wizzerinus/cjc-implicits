@@ -104,7 +104,7 @@ Ptr<Ty> TypeMapper::Cj2CType(Ptr<Ty> cjty) const
             realTypeArgs.push_back(Cj2CType(paramTy));
         }
         return typeManager.GetPointerTy(
-            typeManager.GetFunctionTy(realTypeArgs, Cj2CType(actualFuncType->retTy), {.isC = true}));
+            typeManager.GetFunctionTy(realTypeArgs, {}, Cj2CType(actualFuncType->retTy), {.isC = true}));
     }
     if (IsObjCBlock(*cjty)) {
         return bridge.GetNativeObjCIdTy();

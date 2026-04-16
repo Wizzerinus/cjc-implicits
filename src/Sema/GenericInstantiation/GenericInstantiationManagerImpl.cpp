@@ -186,7 +186,12 @@ Ptr<Ty> GetOriginalTy(Ty& ty, const TypeSubst& g2gTyMap, TypeManager& typeManage
     for (auto paramTy : funcTy.paramTys) {
         paramTys.emplace_back(GetOriginalTy(*paramTy, g2gTyMap, typeManager));
     }
-    return typeManager.GetFunctionTy(paramTys, GetOriginalTy(*funcTy.retTy, g2gTyMap, typeManager));
+    std::vector<Ptr<Ty>> implicitParamTys;
+    implicitParamTys.reserve(funcTy.implicitParamTys.size());
+    for (auto paramTy : funcTy.implicitParamTys) {
+        implicitParamTys.emplace_back(GetOriginalTy(*paramTy, g2gTyMap, typeManager));
+    }
+    return typeManager.GetFunctionTy(paramTys, implicitParamTys, GetOriginalTy(*funcTy.retTy, g2gTyMap, typeManager));
 }
 
 inline ReversedTypeSubst GetReversedTypeSubst(const TypeSubst& typeMapping)

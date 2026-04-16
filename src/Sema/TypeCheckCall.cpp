@@ -1562,7 +1562,8 @@ TypeChecker::TypeCheckerImpl::FuncTyPair TypeChecker::TypeCheckerImpl::CollectVa
             if (hasThisRet) {
                 // Since 'CollectValidFuncTys' is only used for reference node, we do not need to keep 'This' ty here.
                 auto realThisTy = typeManager.GetInstantiatedTy(thisCd->ty, mapping);
-                instTy = typeManager.GetFunctionTy(RawStaticCast<FuncTy*>(instTy)->paramTys, realThisTy);
+                auto instFuncTy = RawStaticCast<FuncTy*>(instTy);
+                instTy = typeManager.GetFunctionTy(instFuncTy->paramTys, instFuncTy->implicitParamTys, realThisTy);
             }
             candidates.emplace_back(std::make_tuple(fd, instTy, mapping));
         }
@@ -2432,7 +2433,8 @@ bool TypeChecker::TypeCheckerImpl::ChkCurryCallBase(ASTContext& ctx, CallExpr& c
             }
         }
     }
-    auto targetForBase = typeManager.GetFunctionTy(paramTys, retTy, {false, false, false, true});
+    // TODO: implicit params — base for call-target check, derive once they may participate in inference.
+    auto targetForBase = typeManager.GetFunctionTy(paramTys, {}, retTy, {false, false, false, true});
     return Check(ctx, targetForBase, ce.baseFunc.get());
 }
 
@@ -2715,12 +2717,12 @@ std::optional<Ptr<Ty>> TypeChecker::TypeCheckerImpl::DynamicBindingThisType(
     auto declOfThisType = GetDeclOfThisType(baseExpr);
     if (auto cd = DynamicCast<ClassDecl*>(declOfThisType); cd && Ty::IsTyCorrect(cd->ty)) {
         auto instTy = typeManager.ApplySubstPack(typeManager.GetClassThisTy(*cd, cd->ty->typeArgs), typeMapping);
-        baseExpr.ty = typeManager.GetFunctionTy(funcTy->paramTys, instTy);
+        baseExpr.ty = typeManager.GetFunctionTy(funcTy->paramTys, funcTy->implicitParamTys, instTy);
         return instTy;
     } else if (auto ma = DynamicCast<MemberAccess*>(&baseExpr); ma && ma->baseExpr) {
         // If the baseExpr's type is generic type, set the function call's return type as 'gty'.
         if (auto gty = DynamicCast<GenericsTy*>(ma->baseExpr->ty); gty) {
-            baseExpr.ty = typeManager.GetFunctionTy(funcTy->paramTys, gty);
+            baseExpr.ty = typeManager.GetFunctionTy(funcTy->paramTys, funcTy->implicitParamTys, gty);
             return gty;
         }
     }
@@ -2819,7 +2821,8 @@ Ptr<FuncTy> MakePlaceholderFuncTy(size_t arity, TypeManager& tyMgr)
     for (size_t i = 0; i < arity; i++) {
         paramTys.push_back(tyMgr.AllocTyVar());
     }
-    return tyMgr.GetFunctionTy(paramTys, retTy);
+    // Placeholder func ty for inference; implicit params are not part of the placeholder shape.
+    return tyMgr.GetFunctionTy(paramTys, {}, retTy);
 }
 
 Ptr<FuncTy> TryCastingToFuncTy(Ptr<Ty> ty, size_t arity, TypeManager& tyMgr)

@@ -205,7 +205,8 @@ Ptr<AST::Ty> JoinAndMeet::JoinOrMeetFuncTy(const DualMode& mode, const std::set<
     }
     auto retTy = mode.coFunc(operandRetTys);
     if (Ty::AreTysCorrect(paramTys) && Ty::IsTyCorrect(retTy)) {
-        auto resultTy = tyMgr.GetFunctionTy(paramTys, retTy);
+        // TODO: implicit params — Join/Meet of FuncTys ignores implicit params.
+        auto resultTy = tyMgr.GetFunctionTy(paramTys, {}, retTy);
         CJC_NULLPTR_CHECK(resultTy);
         for (auto ty : tys) {
             if (!mode.coSubtyFunc(ty, resultTy)) {
@@ -368,7 +369,8 @@ Ptr<Ty> JoinAndMeet::ToUserVisibleTy(Ptr<Ty> ty)
         std::transform(funcTy->paramTys.begin(), funcTy->paramTys.end(), paramTys.begin(),
             [this](Ptr<Ty> typ) { return ToUserVisibleTy(typ); });
         if (Ty::AreTysCorrect(paramTys) && Ty::IsTyCorrect(retTy)) {
-            return tyMgr.GetFunctionTy(paramTys, retTy, {funcTy->isC, funcTy->isClosureTy, funcTy->hasVariableLenArg});
+            return tyMgr.GetFunctionTy(
+                paramTys, funcTy->implicitParamTys, retTy, {funcTy->isC, funcTy->isClosureTy, funcTy->hasVariableLenArg});
         } else {
             return TypeManager::GetInvalidTy();
         }

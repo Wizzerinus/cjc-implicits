@@ -23,7 +23,7 @@ void TypeChecker::TypeCheckerImpl::DesugarSpawnArgExpr(const ASTContext& ctx, co
     // Get `getSchedulerHandle` method from spawn argument, whose signature is `()->CPointer<Unit>`.
     auto classLikeTy = StaticCast<ClassLikeTy*>(arg->ty);
     auto retTy = typeManager.GetPointerTy(TypeManager::GetPrimitiveTy(TypeKind::TYPE_UNIT));
-    auto funcTy = typeManager.GetFunctionTy({}, retTy);
+    auto funcTy = typeManager.GetFunctionTy({}, {}, retTy);
     const auto fieldName = "getSchedulerHandle";
     auto decls = FieldLookup(ctx, classLikeTy->commonDecl, fieldName, {.file = se.curFile});
     CJC_ASSERT(decls.size() == 1); // `getSchedulerHandle(): CPointer<Unit>` is the private method.

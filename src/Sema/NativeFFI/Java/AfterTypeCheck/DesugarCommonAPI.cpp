@@ -191,7 +191,7 @@ OwnedPtr<Decl> JavaDesugarManager::GenerateNativeMethod(
             reg = lib.CreateGetFromRegistryCall(WithinFile(CreateRefExpr(jniEnvPtrParam), curFile),
                 WithinFile(CreateRefExpr(selfParam), curFile), instantTy);
             methodAccess = CreateMemberAccess(std::move(reg), sampleMethod);
-            methodAccess->ty = typeManager.GetFunctionTy(funcTyParams, retActualTy);
+            methodAccess->ty = typeManager.GetFunctionTy(funcTyParams, {}, retActualTy);
         } else {
             reg = lib.CreateGetFromRegistryCall(WithinFile(CreateRefExpr(jniEnvPtrParam), curFile),
                 WithinFile(CreateRefExpr(selfParam), curFile), decl.ty);
@@ -302,7 +302,7 @@ OwnedPtr<Decl> JavaDesugarManager::GenerateNativeFuncDeclBylambda(OwnedPtr<Lambd
     for (auto& param : funcBody->paramLists[0]->params) {
         funcTyParams.push_back(param->ty);
     }
-    auto funcTy = typeManager.GetFunctionTy(funcTyParams, jniRetTy, {.isC = true});
+    auto funcTy = typeManager.GetFunctionTy(funcTyParams, {}, jniRetTy, {.isC = true});
     auto fdecl = CreateFuncDecl(funcName, std::move(funcBody), funcTy);
     fdecl->funcBody->funcDecl = fdecl.get();
     fdecl->EnableAttr(Attribute::C);
@@ -402,9 +402,9 @@ OwnedPtr<Decl> JavaDesugarManager::GenerateNativeInitCjObjectFunc(FuncDecl& ctor
         auto retTy = StaticCast<FuncTy*>(ctor.ty)->retTy;
         Ptr<FuncTy> funcTy;
         if (retTy->HasGeneric()) {
-            funcTy = typeManager.GetFunctionTy(funcTyParams, enumTy, {.isC = true});
+            funcTy = typeManager.GetFunctionTy(funcTyParams, {}, enumTy, {.isC = true});
         } else {
-            funcTy = typeManager.GetFunctionTy(funcTyParams, retTy, {.isC = true});
+            funcTy = typeManager.GetFunctionTy(funcTyParams, {}, retTy, {.isC = true});
         }
         OwnedPtr<MemberAccess> methodAccess = CreateMemberAccess(std::move(enumRefExpr), ctor);
         methodAccess->curFile = curFile;
@@ -417,9 +417,9 @@ OwnedPtr<Decl> JavaDesugarManager::GenerateNativeInitCjObjectFunc(FuncDecl& ctor
         Ptr<FuncTy> funcTy;
         auto instantTy = GetInstantyForGenericTy(*ctor.outerDecl, actualTyArgMap, typeManager);
         if (retTy->HasGeneric()) {
-            funcTy = typeManager.GetFunctionTy(funcTyParams, instantTy, {.isC = true});
+            funcTy = typeManager.GetFunctionTy(funcTyParams, {}, instantTy, {.isC = true});
         } else {
-            funcTy = typeManager.GetFunctionTy(funcTyParams, retTy, {.isC = true});
+            funcTy = typeManager.GetFunctionTy(funcTyParams, {}, retTy, {.isC = true});
         }
         instantiationRefExpr->typeArguments = std::move(actualPrimitiveType);
         instantiationRefExpr->ty = funcTy;
