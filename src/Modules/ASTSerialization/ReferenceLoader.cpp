@@ -372,8 +372,12 @@ void ASTLoader::ASTLoaderImpl::SetTypeTy(FormattedIndex type, const PackageForma
     } else if constexpr (std::is_same_v<TypeT, FuncTy>) {
         auto info = typeObj.info_as_FuncTyInfo();
         CJC_NULLPTR_CHECK(info);
-        ty = typeManager.GetFunctionTy(
-            LoadTypeArgs(typeObj), LoadTypeArgs(info->implicitTypes()), LoadType(info->retType()), {info->isC(), false, info->hasVariableLenArg()});
+        std::vector<Ptr<Ty>> implicitTys;
+        if (auto implicitTypesField = info->implicitTypes()) {
+            implicitTys = LoadTypeArgs(implicitTypesField);
+        }
+        ty = typeManager.GetFunctionTy(LoadTypeArgs(typeObj), std::move(implicitTys), LoadType(info->retType()),
+            {info->isC(), false, info->hasVariableLenArg()});
     } else {
         auto info = typeObj.info_as_CompositeTyInfo();
         CJC_NULLPTR_CHECK(info);

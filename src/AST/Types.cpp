@@ -1122,8 +1122,10 @@ bool FuncTy::operator==(const Ty& other) const
     auto q = dynamic_cast<const FuncTy*>(&other);
     return q && isC == q->isC && noCast == q->noCast && hasVariableLenArg == q->hasVariableLenArg &&
         isClosureTy == q->isClosureTy && retTy == q->retTy && paramTys.size() == q->paramTys.size() &&
+        implicitParamTys.size() == q->implicitParamTys.size() &&
         memcmp(paramTys.data(), q->paramTys.data(), paramTys.size() * sizeof(intptr_t)) == 0 &&
-        memcmp(implicitParamTys.data(), q->implicitParamTys.data(), paramTys.size() * sizeof(intptr_t)) == 0;
+        memcmp(implicitParamTys.data(), q->implicitParamTys.data(),
+            implicitParamTys.size() * sizeof(intptr_t)) == 0;
 }
 
 bool UnionTy::operator==(const Ty& other) const
