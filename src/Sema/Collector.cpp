@@ -330,6 +330,9 @@ void Collector::CollectFuncBody(ASTContext& ctx, FuncBody& fb, bool buildTrie)
     for (auto& funcParamList : fb.paramLists) {
         BuildSymbolTable(ctx, funcParamList.get(), buildTrie);
     }
+    if (fb.implicitParamList.has_value()) {
+        BuildSymbolTable(ctx, fb.implicitParamList.value().get(), buildTrie);
+    }
     BuildSymbolTable(ctx, fb.retType.get(), buildTrie);
     if (fb.body != nullptr) {
         for (auto& n : fb.body->body) {
@@ -1316,6 +1319,11 @@ void Collector::BuildSymbolTable(ASTContext& ctx, Ptr<Node> node, bool buildTrie
             AddSymbol(ctx, nodeInfo, buildTrie);
             for (auto& paramType : ft->paramTypes) {
                 BuildSymbolTable(ctx, paramType.get(), buildTrie);
+            }
+            if (ft->usingType.has_value()) {
+                for (auto& paramType : ft->usingType.value()->paramTypes) {
+                    BuildSymbolTable(ctx, paramType.get(), buildTrie);
+                }
             }
             BuildSymbolTable(ctx, ft->retType.get(), buildTrie);
             break;

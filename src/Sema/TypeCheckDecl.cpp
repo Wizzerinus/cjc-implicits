@@ -526,7 +526,19 @@ void TypeChecker::TypeCheckerImpl::SetEnumEleTyHandleFuncDecl(FuncDecl& funcDecl
         param->ty = ty;
         paramTys.emplace_back(ty);
     }
-    auto ctorTy = typeManager.GetFunctionTy(paramTys, {}, funcDecl.outerDecl->ty);
+    std::vector<Ptr<Ty>> implicitParamTys;
+    if (funcDecl.funcBody->implicitParamList.has_value()) {
+        auto& ipl = funcDecl.funcBody->implicitParamList.value();
+        for (auto& param : ipl->params) {
+            if (!param->type) {
+                continue;
+            }
+            auto ty = param->type->ty;
+            param->ty = ty;
+            implicitParamTys.emplace_back(ty);
+        }
+    }
+    auto ctorTy = typeManager.GetFunctionTy(paramTys, implicitParamTys, funcDecl.outerDecl->ty);
     funcDecl.funcBody->ty = ctorTy;
     funcDecl.ty = ctorTy;
     funcDecl.funcBody->retType = MakeOwned<RefType>();

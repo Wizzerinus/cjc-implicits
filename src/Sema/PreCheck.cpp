@@ -473,9 +473,18 @@ Ptr<Ty> TypeChecker::TypeCheckerImpl::GetTyFromASTCFuncType(ASTContext& ctx, Ref
         param->ty = GetTyFromASTType(ctx, &*param);
         paramTys.push_back(param->ty);
     }
+    std::vector<Ptr<Ty>> implicitParamTys;
+    if (funcType->usingType.has_value()) {
+        const auto& ut = funcType->usingType.value();
+        for (size_t i{0}; i < ut->paramTypes.size(); ++i) {
+            auto& param = ut->paramTypes[i];
+            param->ty = GetTyFromASTType(ctx, &*param);
+            implicitParamTys.push_back(param->ty);
+        }
+    }
     Ptr<Ty> retTy = funcType->retType->ty = GetTyFromASTType(ctx, funcType->retType.get());
     funcType->ty = GetTyFromASTType(ctx, funcType);
-    return typeManager.GetFunctionTy(std::move(paramTys), {}, retTy, {.isC = true});
+    return typeManager.GetFunctionTy(std::move(paramTys), std::move(implicitParamTys), retTy, {.isC = true});
 }
 
 Ptr<Ty> TypeChecker::TypeCheckerImpl::GetTyFromASTType(ASTContext& ctx, QualifiedType& qt)
@@ -591,6 +600,20 @@ Ptr<Ty> TypeChecker::TypeCheckerImpl::GetTyFromASTType(ASTContext& ctx, FuncType
         }
         paramTys.push_back(paramType->ty);
     }
+    std::vector<Ptr<Ty>> implicitParamTys;
+    if (funcType.usingType.has_value()) {
+        auto& ut = funcType.usingType.value();
+        for (auto& paramType : ut->paramTypes) {
+            if (!paramType) {
+                return TypeManager::GetInvalidTy();
+            }
+            paramType->ty = GetTyFromASTType(ctx, paramType.get());
+            if (Ty::IsInitialTy(paramType->ty)) {
+                return TypeManager::GetInvalidTy();
+            }
+            implicitParamTys.push_back(paramType->ty);
+        }
+    }
     if (!funcType.retType) {
         return TypeManager::GetInvalidTy();
     }
@@ -598,7 +621,7 @@ Ptr<Ty> TypeChecker::TypeCheckerImpl::GetTyFromASTType(ASTContext& ctx, FuncType
     if (!funcType.retType->ty) {
         return TypeManager::GetInvalidTy();
     }
-    funcType.ty = typeManager.GetFunctionTy(paramTys, {}, funcType.retType->ty, {funcType.isC});
+    funcType.ty = typeManager.GetFunctionTy(paramTys, implicitParamTys, funcType.retType->ty, {funcType.isC});
     return funcType.ty;
 }
 
