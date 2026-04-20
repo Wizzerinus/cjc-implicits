@@ -225,6 +225,7 @@ private:
     Position LoadPos(const PackageFormat::Position* posObj);
     void LoadImportContent(AST::ImportContent& content, const PackageFormat::ImportSpec& is) const;
     std::vector<Ptr<AST::Ty>> LoadTypeArgs(const PackageFormat::SemaTy& typeObj);
+    std::vector<Ptr<AST::Ty>> LoadTypeArgs(const ::flatbuffers::Vector<uint32_t>* typeObj);
     void SetGenericTy(FormattedIndex type, const PackageFormat::SemaTy& typeObj);
     bool GetPrimitiveTy(FormattedIndex type, const PackageFormat::SemaTy* typeObj);
     template <typename TypeT, typename TypeDecl = void>

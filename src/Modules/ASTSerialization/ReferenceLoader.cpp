@@ -333,11 +333,16 @@ void ASTLoader::ASTLoaderImpl::SetGenericTy(FormattedIndex type, const PackageFo
 
 std::vector<Ptr<Ty>> ASTLoader::ASTLoaderImpl::LoadTypeArgs(const PackageFormat::SemaTy& typeObj)
 {
+    return LoadTypeArgs(typeObj.typeArgs());
+}
+
+std::vector<Ptr<Ty>> ASTLoader::ASTLoaderImpl::LoadTypeArgs(const ::flatbuffers::Vector<uint32_t>* typeObj)
+{
     std::vector<Ptr<Ty>> typeArgs;
-    CJC_NULLPTR_CHECK(typeObj.typeArgs());
-    auto length = static_cast<uoffset_t>(typeObj.typeArgs()->size());
+    CJC_NULLPTR_CHECK(typeObj);
+    auto length = static_cast<uoffset_t>(typeObj->size());
     for (uoffset_t i = 0; i < length; i++) {
-        typeArgs.emplace_back(LoadType(typeObj.typeArgs()->Get(i)));
+        typeArgs.emplace_back(LoadType(typeObj->Get(i)));
     }
     return typeArgs;
 }
@@ -367,9 +372,8 @@ void ASTLoader::ASTLoaderImpl::SetTypeTy(FormattedIndex type, const PackageForma
     } else if constexpr (std::is_same_v<TypeT, FuncTy>) {
         auto info = typeObj.info_as_FuncTyInfo();
         CJC_NULLPTR_CHECK(info);
-        // TODO: implicit params — extend the serialized FuncTyInfo to round-trip implicitParamTys.
         ty = typeManager.GetFunctionTy(
-            LoadTypeArgs(typeObj), {}, LoadType(info->retType()), {info->isC(), false, info->hasVariableLenArg()});
+            LoadTypeArgs(typeObj), LoadTypeArgs(info->implicitTypes()), LoadType(info->retType()), {info->isC(), false, info->hasVariableLenArg()});
     } else {
         auto info = typeObj.info_as_CompositeTyInfo();
         CJC_NULLPTR_CHECK(info);

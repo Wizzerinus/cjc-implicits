@@ -592,6 +592,7 @@ table FuncTyInfo {
   retType:uint32; // Func return type
   isC:bool;       // CFunc or @C func type.
   hasVariableLenArg:bool;
+  implicitTypes:[uint32];
 }
 table CompositeTyInfo {
   declPtr:FullId;

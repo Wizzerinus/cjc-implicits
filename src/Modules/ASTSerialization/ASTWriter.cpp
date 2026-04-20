@@ -1036,11 +1036,16 @@ TTypeOffset ASTWriter::ASTWriterImpl::SaveFuncTy(const FuncTy& type)
     for (auto& it : type.paramTys) {
         paramTypes.push_back(SaveType(it));
     }
+    std::vector<FormattedIndex> implicitParamTypes;
+    for (auto& it : type.implicitParamTys) {
+        implicitParamTypes.push_back(SaveType(it));
+    }
     auto vParamTypes = builder.CreateVector<FormattedIndex>(paramTypes);
+    auto vImplicitParamTypes = builder.CreateVector<FormattedIndex>(implicitParamTypes);
     // SaveType has side effect (it allocates an offset for the type)
     // DO NOT put it in another expression
     FormattedIndex retType = SaveType(type.retTy);
-    auto info = PackageFormat::CreateFuncTyInfo(builder, retType, type.isC, type.hasVariableLenArg);
+    auto info = PackageFormat::CreateFuncTyInfo(builder, retType, type.isC, type.hasVariableLenArg, vImplicitParamTypes);
     PackageFormat::SemaTyBuilder tbuilder(builder);
     tbuilder.add_kind(GetFormatTypeKind(type.kind));
     tbuilder.add_typeArgs(vParamTypes);

@@ -897,7 +897,7 @@ bool TypeManager::IsFuncParametersSubtype(const FuncTy& leaf, const FuncTy& root
         }
         // We must be invariant in implicit types.
         for (size_t i = 0; i < leaf.implicitParamTys.size(); i++) {
-            result = result && IsTyEqual(root.implicitParamTys[i], leaf.implicitParamTys[i], noCast);
+            result = result && IsTyEqual(root.implicitParamTys[i], leaf.implicitParamTys[i]);
         }
         result = result && leaf.isC == root.isC;
         result = result && leaf.hasVariableLenArg == root.hasVariableLenArg;

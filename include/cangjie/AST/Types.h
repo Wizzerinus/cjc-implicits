@@ -723,6 +723,9 @@ struct FuncTy : Ty {
           noCast(cfg.noCast)
     {
         typeArgs = paramTys;
+        for (auto& imp : implicitParamTys) {
+            typeArgs.emplace_back(imp);
+        }
         // Currently, only CFunc has variable length parameters.
         invalid = !Ty::AreTysCorrect(typeArgs) || !Ty::IsTyCorrect(rType) || (!isC && hasVariableLenArg);
         generic = Ty::ExistGeneric(typeArgs) || (rType && rType->HasGeneric());
