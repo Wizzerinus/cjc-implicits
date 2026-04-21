@@ -877,7 +877,7 @@ bool TypeManager::IsFuncSubtype(const Ty& leaf, const Ty& root)
     }
     auto& leafFuncType = static_cast<const FuncTy&>(leaf);
     auto& rootFuncType = static_cast<const FuncTy&>(root);
-    if (IsFuncParametersSubtype(leafFuncType, rootFuncType)) {
+    if (IsFuncParametersSubtype(leafFuncType, rootFuncType) && IsFuncParameterTypesIdentical(leafFuncType.implicitParamTys, rootFuncType.implicitParamTys)) {
         bool noCast = leafFuncType.noCast || rootFuncType.noCast;
         return IsSubtype(leafFuncType.retTy, rootFuncType.retTy, noCast);
     }
@@ -2569,7 +2569,7 @@ Ptr<AST::Ty> TypeManager::SubstituteTypeAliasInTy(AST::Ty& ty, bool needSubstitu
                 implicits.emplace_back(typeArgs.back());
                 typeArgs.pop_back();
             }
-            std::reverse(typeArgs.begin(), typeArgs.end());
+            std::reverse(implicits.begin(), implicits.end());
             return GetFunctionTy(
                 typeArgs, implicits, returnTy, {funcTy.isC, false, funcTy.hasVariableLenArg});
         }
