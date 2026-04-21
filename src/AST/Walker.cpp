@@ -35,8 +35,7 @@ template class WalkerT<const Node>;
 } // namespace Cangjie::AST
 template VisitAction Walker::Walk(Ptr<Node> curNode) const;
 template VisitAction ConstWalker::Walk(Ptr<const Node> curNode) const;
-template <class NodeT>
-VisitAction WalkerT<NodeT>::Walk(Ptr<NodeT> curNode) const
+template <class NodeT> VisitAction WalkerT<NodeT>::Walk(Ptr<NodeT> curNode) const
 {
     if (!curNode) {
         return VisitAction::WALK_CHILDREN;
@@ -567,7 +566,7 @@ VisitAction WalkerT<NodeT>::Walk(Ptr<NodeT> curNode) const
                     return VisitAction::STOP_NOW;
                 }
                 if (Walk(te->finallyLambda.get()) == VisitAction::STOP_NOW) {
-                        return VisitAction::STOP_NOW;
+                    return VisitAction::STOP_NOW;
                 }
                 action = VisitAction::WALK_CHILDREN;
                 break;
@@ -591,7 +590,7 @@ VisitAction WalkerT<NodeT>::Walk(Ptr<NodeT> curNode) const
             case ASTKind::RESUME_EXPR: {
                 auto re = StaticAs<ASTKind::RESUME_EXPR>(curNode);
                 if (Walk(re->withExpr.get()) == VisitAction::STOP_NOW ||
-                        Walk(re->throwingExpr.get()) == VisitAction::STOP_NOW) {
+                    Walk(re->throwingExpr.get()) == VisitAction::STOP_NOW) {
                     return VisitAction::STOP_NOW;
                 }
                 action = VisitAction::WALK_CHILDREN;
@@ -966,8 +965,23 @@ VisitAction WalkerT<NodeT>::Walk(Ptr<NodeT> curNode) const
                         return VisitAction::STOP_NOW;
                     }
                 }
+                if (ft->usingType.has_value()) {
+                    if (Walk(ft->usingType.value()) == VisitAction::STOP_NOW) {
+                        return VisitAction::STOP_NOW;
+                    }
+                }
                 if (Walk(ft->retType.get()) == VisitAction::STOP_NOW) {
                     return VisitAction::STOP_NOW;
+                }
+                action = VisitAction::WALK_CHILDREN;
+                break;
+            }
+            case ASTKind::USING_TYPE: {
+                auto ut = StaticAs<ASTKind::USING_TYPE>(curNode);
+                for (auto& paramType : ut->paramTypes) {
+                    if (Walk(paramType.get()) == VisitAction::STOP_NOW) {
+                        return VisitAction::STOP_NOW;
+                    }
                 }
                 action = VisitAction::WALK_CHILDREN;
                 break;
