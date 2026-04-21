@@ -263,6 +263,7 @@ std::optional<OwnedPtr<FuncTypeUsing>> ParserImpl::ParseFuncTypeUsing()
     auto ft = MakeOwned<FuncTypeUsing>();
     Skip(TokenKind::IDENTIFIER);
     ft->usingPos = lastToken.Begin();
+    ft->begin = ft->usingPos;
     if (!Skip(TokenKind::LPAREN)) {
         DiagExpectedLeftParenAfter(lastToken.Begin(), "using in function type");
         return {};
@@ -283,6 +284,7 @@ std::optional<OwnedPtr<FuncTypeUsing>> ParserImpl::ParseFuncTypeUsing()
         return {};
     }
     ft->rightParenPos = lastToken.Begin();
+    ft->end = ft->rightParenPos;
 
     return ft;
 }

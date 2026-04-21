@@ -292,7 +292,7 @@ void ASTChecker::CheckFeaturesSet(Ptr<Node> node)
 void ASTChecker::CheckFeatureId(Ptr<Node> node)
 {
     auto fc = StaticAs<ASTKind::FEATURE_ID>(node);
-    for (auto &ident : fc->identifiers) {
+    for (auto& ident : fc->identifiers) {
         EMPTY_IDENTIFIER_CHECK(node, ident);
     }
     VEC_ZERO_POS_CHECK(node, fc->dotPoses);
@@ -610,12 +610,12 @@ void ASTChecker::CheckSynchronizedExpr(Ptr<Node> node)
 void ASTChecker::CheckImplicitWithExpr(Ptr<Node> node)
 {
     auto iwe = StaticAs<ASTKind::IMPLICIT_WITH_EXPR>(node);
-    ZERO_POSITION_CHECK(node, te->withPos);
-    ZERO_POSITION_CHECK(node, te->leftParenPos);
-    VEC_AST_NULLPTR_CHECK(node, te->children);
-    VEC_ZERO_POS_CHECK(node, te->commaPosVector);
-    ZERO_POSITION_CHECK(node, te->rightParenPos);
-    AST_NULLPTR_CHECK(node, se->body);
+    ZERO_POSITION_CHECK(node, iwe->withPos);
+    ZERO_POSITION_CHECK(node, iwe->leftParenPos);
+    VEC_AST_NULLPTR_CHECK(node, iwe->children);
+    VEC_ZERO_POS_CHECK(node, iwe->commaPosVector);
+    ZERO_POSITION_CHECK(node, iwe->rightParenPos);
+    AST_NULLPTR_CHECK(node, iwe->body);
 }
 void ASTChecker::CheckThrowExpr(Ptr<Node> node)
 {
@@ -627,7 +627,7 @@ void ASTChecker::CheckPerformExpr(Ptr<Node> node)
 {
     auto pe = StaticAs<ASTKind::PERFORM_EXPR>(node);
     ZERO_POSITION_CHECK(node, pe->performPos);
-    AST_NULLPTR_CHECK(node, pe->expr)   ;
+    AST_NULLPTR_CHECK(node, pe->expr);
 }
 void ASTChecker::CheckResumeExpr(Ptr<Node> node)
 {
@@ -795,6 +795,14 @@ void ASTChecker::CheckFuncType(Ptr<Node> node)
     ZERO_POSITION_CHECK(node, ft->rightParenPos);
     ZERO_POSITION_CHECK(node, ft->arrowPos);
     AST_NULLPTR_CHECK(node, ft->retType);
+}
+void ASTChecker::CheckFuncTypeUsing(Ptr<Node> node)
+{
+    auto ft = StaticAs<ASTKind::USING_TYPE>(node);
+    ZERO_POSITION_CHECK(node, ft->usingPos);
+    ZERO_POSITION_CHECK(node, ft->leftParenPos);
+    VEC_AST_NULLPTR_CHECK(node, ft->paramTypes);
+    ZERO_POSITION_CHECK(node, ft->rightParenPos);
 }
 void ASTChecker::CheckOptionType(Ptr<Node> node)
 {

@@ -669,7 +669,7 @@ struct FuncTy : Ty {
      * W: Sema, AST2CHIR (to merge with implicit parameters).
      * R: ImportManager, Sema, GenericInstantiator, AST2CHIR, CHIR, HLIRCodeGen, LLVMCodeGen.
      */
-    std::vector<Ptr<Ty>> paramTys{};
+    const std::vector<Ptr<Ty>> paramTys{};
     /**
      * Implicit parameters that this function requires, in order of their application.
      * W: Sema.
