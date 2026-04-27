@@ -407,4 +407,11 @@ WARNING(sema_hide_must_at_end, APILEVEL_CHECK, "annotation '%s' must be placed b
 
 WARNING(sema_unused_import, UNUSED, "unused import '%s'", "unused import")
 
+// implicit
+ERROR(sema_duplicate_implicits, "Found duplicate implicits (%s) of type '%s' while resolving a function call, %s scopes above the inner level")
+ERROR(sema_implicit_not_found, "Found no implicits of type '%s' while resolving a function call")
+ERROR(sema_unexpected_nonfunc_ty, "While validating implicits, expected to get a function type in this function call, but got '%s' instead. This is likely a bug in cjc.")
+ERROR(sema_invalid_implicit_ty, "An implicit type '%s' in a function call is invalid. This is likely a bug in cjc.")
+ERROR(sema_implicit_type_generic, "An implicit type '%s' in a function call contains generic type variables that are not yet instantiated. This is likely a bug in cjc.")
+
 ERROR(sema_diag_end, "")

@@ -1068,6 +1068,7 @@ private:
     bool IsGenericCall(const ASTContext& ctx, const AST::CallExpr& ce, const AST::FuncDecl& fd) const;
     bool CheckArgsWithParamName(const AST::CallExpr& ce, const AST::FuncDecl& fd);
     bool PostCheckCallExpr(const ASTContext& ctx, AST::CallExpr& ce, AST::FuncDecl& func, const SubstPack& typeMapping);
+    bool ValidateImplicitContext(const ASTContext& ctx, AST::CallExpr& ce, Ptr<AST::Ty> funcTy, const std::optional<SubstPack>& typeMapping);
     void PostProcessForLSP(AST::CallExpr& ce, const std::vector<Ptr<AST::FuncDecl>>& result) const;
     void CheckUnsafeInvoke(const AST::CallExpr& ce);
     void CheckToTokensImpCallExpr(const AST::CallExpr& ce);

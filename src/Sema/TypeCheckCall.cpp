@@ -2810,7 +2810,64 @@ bool TypeChecker::TypeCheckerImpl::PostCheckCallExpr(
         ce.callKind = CallKind::CALL_INVALID;
         return false;
     }
-    return true;
+
+    return ValidateImplicitContext(ctx, ce, func.ty, typeMapping);
+}
+
+bool TypeChecker::TypeCheckerImpl::ValidateImplicitContext(
+    const ASTContext& ctx, CallExpr& ce, Ptr<Ty> ty, const std::optional<SubstPack>& typeMapping)
+{
+    CJC_NULLPTR_CHECK(ty);
+    if (typeMapping.has_value()) {
+        ty = typeManager.ApplySubstPack(ty, typeMapping.value());
+    }
+    auto funcTy = DynamicCast<FuncTy*>(ty);
+    if (funcTy == nullptr) {
+        diag.DiagnoseRefactor(DiagKindRefactor::sema_unexpected_nonfunc_ty, ce.leftParenPos, ty->String());
+        return false;
+    }
+    bool ok = true;
+    for (auto& implicitType : funcTy->implicitParamTys) {
+        if (implicitType == nullptr || implicitType->IsInvalid()) {
+            diag.DiagnoseRefactor(DiagKindRefactor::sema_invalid_implicit_ty, ce.leftParenPos, implicitType == nullptr ? "null" : implicitType->String());
+            ok = false;
+            continue;
+        }
+        if (implicitType->HasGeneric()) {
+            diag.DiagnoseRefactor(DiagKindRefactor::sema_implicit_type_generic, ce.leftParenPos, implicitType == nullptr ? "null" : implicitType->String());
+            ok = false;
+            continue;
+        }
+        std::optional<std::tuple<size_t, size_t>> found;
+        auto& scopes = scopeManager.FetchImplicitScopes(ctx);
+        for (size_t s = scopes.size(); s > 0; s--) {
+            auto& scope = scopes[s - 1];
+            std::vector<size_t> candidates;
+            for (size_t i = 0; i < scope.items.size(); i++) {
+                auto& scopedTy = scope.items[i].type;
+                if (typeManager.IsSubtype(scopedTy, implicitType)) {
+                    candidates.push_back(i);
+                }
+            }
+            if (candidates.size() == 1) {
+                found = {s - 1, candidates[0]};
+                break;
+            } else if (candidates.size() > 1) {
+                // TODO: improve diagnostics lol (not worth doing right now)
+                diag.DiagnoseRefactor(DiagKindRefactor::sema_duplicate_implicits, ce.leftParenPos,
+                    std::to_string(candidates.size()), implicitType->String(), std::to_string(scopes.size() - s));
+                ok = false;
+            }
+        }
+        if (!found.has_value()) {
+            diag.DiagnoseRefactor(DiagKindRefactor::sema_implicit_not_found, ce.leftParenPos, implicitType->String());
+            ok = false;
+        }
+
+        // TODO: save found somewhere?
+        (void)(ce);
+    }
+    return ok;
 }
 
 namespace {
@@ -2896,12 +2953,19 @@ bool TypeChecker::TypeCheckerImpl::CheckNonNormalCall(ASTContext& ctx, Ptr<Ty> t
             diag.Diagnose(ce, DiagKind::sema_unsafe_function_invoke_failed);
             res = false;
         }
+
+        // In this branch the function is already expected to be instantiated
+        if (!ValidateImplicitContext(ctx, ce, funcTy, {})) {
+            res = false;
+        }
     } else if (ChkFunctionCallExpr(ctx, target, ce)) {
         res = true;
     }
+
     if (!res) {
         ce.ty = TypeManager::GetInvalidTy();
     }
+
     return res;
 }
 
