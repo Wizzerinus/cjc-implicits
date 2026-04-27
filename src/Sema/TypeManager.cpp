@@ -887,7 +887,7 @@ bool TypeManager::IsFuncSubtype(const Ty& leaf, const Ty& root)
 bool TypeManager::IsFuncParametersSubtype(const FuncTy& leaf, const FuncTy& root)
 {
     bool noCast = leaf.noCast || root.noCast;
-    if (leaf.paramTys.size() == root.paramTys.size()) {
+    if (leaf.paramTys.size() == root.paramTys.size() && leaf.implicitParamTys.size() == root.implicitParamTys.size()) {
         bool result = true;
         for (size_t i = 0; i < leaf.paramTys.size(); i++) {
             result = result && IsSubtype(root.paramTys[i], leaf.paramTys[i], noCast);

@@ -187,6 +187,11 @@ template <class NodeT> VisitAction WalkerT<NodeT>::Walk(Ptr<NodeT> curNode) cons
                         return VisitAction::STOP_NOW;
                     }
                 }
+                if (fb->implicitParamList.has_value()) {
+                    if (Walk(fb->implicitParamList.value().get()) == VisitAction::STOP_NOW) {
+                        return VisitAction::STOP_NOW;
+                    }
+                }
                 if (Walk(fb->retType.get()) == VisitAction::STOP_NOW) {
                     return VisitAction::STOP_NOW;
                 }
