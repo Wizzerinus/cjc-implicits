@@ -110,7 +110,7 @@ bool TypeChecker::TypeCheckerImpl::CheckBodyRetType(ASTContext& ctx, FuncBody& f
     // If the return type is not of QuestTy, then we use it to check the function's body.
     if (fb.retType->ty->IsQuest()) {
         // Semantic analysis for function body without given return type.
-        auto ret = Synthesize(ctx, fb.body.get());
+        auto ret = SynthesizeWithUsing(ctx, fb);
         // In lambda, the return value type should be consistent with the body.
         // Otherwise, errors in the body that do not affect the return value type may fail to be reported.
         if (fb.funcDecl == nullptr && !Ty::IsTyCorrect(ret)) {
@@ -140,7 +140,7 @@ bool TypeChecker::TypeCheckerImpl::CheckBodyRetType(ASTContext& ctx, FuncBody& f
         if (fb.retType->ty->IsUnit()) {
             // The body eventually will be appended a 'return ()' expression, so we switch to the Synthesize mode.
             // Errors should be already reported during the synthesis.
-            isWellTyped = Ty::IsTyCorrect(Synthesize(ctx, fb.body.get()));
+            isWellTyped = Ty::IsTyCorrect(SynthesizeWithUsing(ctx, fb));
         } else if (NeedCheckBodyReturn(fb)) {
             isWellTyped = Check(ctx, fb.retType->ty, fb.body.get());
             if (!isWellTyped && fb.body->body.empty()) {
@@ -254,7 +254,7 @@ bool TypeChecker::TypeCheckerImpl::CheckNormalFuncBody(ASTContext& ctx, FuncBody
     if (!Ty::IsTyCorrect(fb.retType->ty)) {
         if (!fb.TestAttr(Attribute::IS_CHECK_VISITED)) {
             fb.EnableAttr(Attribute::IS_CHECK_VISITED); // Avoid re-enter funcDecl check, when function is invalid.
-            Synthesize(ctx, fb.body.get());             // Synthesize for other decl/expr in function body.
+            SynthesizeWithUsing(ctx, fb);             // Synthesize for other decl/expr in function body.
         }
         fb.ty = typeManager.GetFunctionTy(
             paramTys, implicitParamTys, fb.retType->ty, {isCFunc, false, hasVariableLenArg});
@@ -477,7 +477,30 @@ void TypeChecker::TypeCheckerImpl::CheckCtorFuncBody(ASTContext& ctx, FuncBody& 
     fb.ty = typeManager.GetFunctionTy(paramTys, GetFuncBodyImplicitParamTys(fb), ctorTy);
     fb.funcDecl->ty = fb.ty;
     fb.retType->ty = ctorTy;
-    Synthesize(ctx, fb.body.get());
+    SynthesizeWithUsing(ctx, fb);
+}
+
+Ptr<AST::Ty> TypeChecker::TypeCheckerImpl::SynthesizeWithUsing(ASTContext& ctx, FuncBody& fb) {
+    bool shouldCloseScope = false;
+    if (fb.implicitParamList.has_value()) {
+        Ptr<FuncParamList> fpl = fb.implicitParamList.value().get();
+        if (fpl->params.size() > 0) {
+            shouldCloseScope = true;
+            std::vector<ImplicitValue> impTys;
+            CheckFuncParamList(ctx, *fpl);
+            auto tupleTy = DynamicCast<AST::TupleTy>(fpl->ty);
+            CJC_NULLPTR_CHECK(tupleTy);
+            for (auto& ty : tupleTy->typeArgs) {
+                impTys.push_back(ImplicitValue{ty});
+            }
+            scopeManager.EnterImplicitScope(ctx, ImplicitScope{std::move(impTys)});
+        }
+    }
+    Ptr<AST::Ty> out = Synthesize(ctx, fb.body.get());
+    if (shouldCloseScope) {
+        scopeManager.ExitImplicitScope(ctx);
+    }
+    return out;
 }
 
 void TypeChecker::TypeCheckerImpl::CheckFuncParamList(ASTContext& ctx, FuncParamList& fpl)

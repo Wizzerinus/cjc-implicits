@@ -1274,6 +1274,7 @@ private:
     Ptr<AST::Ty> CalcFuncRetTyFromBody(const AST::FuncBody& fb);
     void ReplaceFuncRetTyWithThis(AST::FuncBody& fb, Ptr<AST::Ty> ty);
     void CheckCtorFuncBody(ASTContext& ctx, AST::FuncBody& fb);
+    Ptr<AST::Ty> SynthesizeWithUsing(ASTContext& ctx, AST::FuncBody& fb);
     bool CheckReturnThisInFuncBody(const AST::FuncBody& fb) const;
     /**
      * If a constructor contains super-calling or init-calling in its body, the
