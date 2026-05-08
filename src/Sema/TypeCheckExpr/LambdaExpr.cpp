@@ -252,6 +252,28 @@ void TypeChecker::TypeCheckerImpl::TryInferFromSyntaxInfo(ASTContext& ctx, const
     }
 }
 
+Ptr<Ty> TypeChecker::TypeCheckerImpl::DetermineLambdaImplicitsAndSynthesize(
+    ASTContext& ctx, LambdaExpr& le) {
+    bool shouldCloseScope = false;
+    if (ctx.HasTargetTy(&le)) {
+        if (auto funcTy = DynamicCast<FuncTy>(ctx.targetTypeMap[&le])) {
+            if (!funcTy->implicitParamTys.empty()) {
+                shouldCloseScope = true;
+                std::vector<ImplicitValue> impTys;
+                for (auto& argTy : funcTy->implicitParamTys) {
+                    impTys.push_back(ImplicitValue{argTy});
+                }
+                scopeManager.EnterImplicitScope(ctx, ImplicitScope{std::move(impTys)});
+            }
+        }
+    }
+    Ptr<Ty> out = Synthesize(ctx, le.funcBody.get());
+    if (shouldCloseScope) {
+        scopeManager.ExitImplicitScope(ctx);
+    }
+    return out;
+}
+
 Ptr<Ty> TypeChecker::TypeCheckerImpl::SynLamExpr(ASTContext& ctx, LambdaExpr& le)
 {
     if (le.funcBody == nullptr || le.funcBody->paramLists.empty()) {
@@ -282,7 +304,7 @@ Ptr<Ty> TypeChecker::TypeCheckerImpl::SynLamExpr(ASTContext& ctx, LambdaExpr& le
     Ptr<Ty> leTy = nullptr;
     {
         DiagSuppressor ds(diag);
-        leTy = Synthesize(ctx, le.funcBody.get());
+        leTy = DetermineLambdaImplicitsAndSynthesize(ctx, le);
         if (skipSolving) {
             ds.ReportDiag();
         }

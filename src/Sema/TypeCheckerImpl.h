@@ -1275,6 +1275,7 @@ private:
     void ReplaceFuncRetTyWithThis(AST::FuncBody& fb, Ptr<AST::Ty> ty);
     void CheckCtorFuncBody(ASTContext& ctx, AST::FuncBody& fb);
     Ptr<AST::Ty> SynthesizeWithUsing(ASTContext& ctx, AST::FuncBody& fb);
+    Ptr<AST::Ty> DetermineLambdaImplicitsAndSynthesize(ASTContext& ctx, AST::LambdaExpr& le);
     bool CheckReturnThisInFuncBody(const AST::FuncBody& fb) const;
     /**
      * If a constructor contains super-calling or init-calling in its body, the
