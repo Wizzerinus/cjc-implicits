@@ -350,7 +350,7 @@ bool TypeChecker::TypeCheckerImpl::ChkLamExpr(ASTContext& ctx, Ty& target, Lambd
         ClearLambdaBodyForReCheck(le);
 
         // Should not be short-circuited.
-        if (ChkLamBody(ctx, *le.funcBody) && paramsMatched) {
+        if (ChkLamBody(ctx, target, *le.funcBody) && paramsMatched) {
             ds.ReportDiag();
             // The call to GetFunctionTy is necessary to create (cached) CPointer types if necessary.
             le.funcBody->ty = typeManager.GetFunctionTy(lamParamTys, GetFuncBodyImplicitParamTys(*le.funcBody),
@@ -409,9 +409,24 @@ bool TypeChecker::TypeCheckerImpl::ChkLamParamTys(
     return true;
 }
 
-bool TypeChecker::TypeCheckerImpl::ChkLamBody(ASTContext& ctx, FuncBody& lamFb)
-{
-    if (CheckFuncBody(ctx, lamFb) && Ty::IsTyCorrect(lamFb.ty) && Ty::IsTyCorrect(lamFb.body->ty)) {
+bool TypeChecker::TypeCheckerImpl::ChkLamBody(ASTContext& ctx, Ty& targetTy, FuncBody& lamFb) {
+    bool shouldCloseScope = false;
+    if (auto funcTy = DynamicCast<FuncTy>(&targetTy)) {
+        if (!funcTy->implicitParamTys.empty()) {
+            shouldCloseScope = true;
+            std::vector<ImplicitValue> impTys;
+            for (auto& argTy : funcTy->implicitParamTys) {
+                impTys.push_back(ImplicitValue{argTy});
+            }
+            scopeManager.EnterImplicitScope(ctx, ImplicitScope{std::move(impTys)});
+        }
+    }
+    bool result = CheckFuncBody(ctx, lamFb) && Ty::IsTyCorrect(lamFb.ty) && Ty::IsTyCorrect(lamFb.body->ty);
+    if (shouldCloseScope) {
+        scopeManager.ExitImplicitScope(ctx);
+    }
+    
+    if (result) {
         return true;
     }
     // Since the return type of lambda body is added in 'ChkLamExpr', all type mismatching errors are reported before.

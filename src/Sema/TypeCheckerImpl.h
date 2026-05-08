@@ -716,7 +716,7 @@ private:
     bool ChkLamExpr(ASTContext& ctx, AST::Ty& target, AST::LambdaExpr& le);
     bool ChkLamParamTys(ASTContext& ctx, AST::LambdaExpr& le, const std::vector<Ptr<AST::Ty>>& tgtParamTys,
         std::vector<Ptr<AST::Ty>>& lamParamTys);
-    bool ChkLamBody(ASTContext& ctx, AST::FuncBody& lamFb);
+    bool ChkLamBody(ASTContext& ctx, AST::Ty& targetTy, AST::FuncBody& lamFb);
     Ptr<AST::Ty> SynIfExpr(ASTContext& ctx, AST::IfExpr& ie);
     bool ChkIfExpr(ASTContext& ctx, AST::Ty& tgtTy, AST::IfExpr& ie);
     Ptr<AST::Ty> ReplaceThisTy(Ptr<AST::Ty> now);
