@@ -2822,19 +2822,20 @@ bool TypeChecker::TypeCheckerImpl::ValidateImplicitContext(
         ty = typeManager.ApplySubstPack(ty, typeMapping.value());
     }
     auto funcTy = DynamicCast<FuncTy*>(ty);
+    auto beginPos = !ce.leftParenPos.IsZero() ? ce.leftParenPos : ce.begin;
     if (funcTy == nullptr) {
-        diag.DiagnoseRefactor(DiagKindRefactor::sema_unexpected_nonfunc_ty, ce.leftParenPos, ty->String());
+        diag.DiagnoseRefactor(DiagKindRefactor::sema_unexpected_nonfunc_ty, beginPos, ty->String());
         return false;
     }
     bool ok = true;
     for (auto& implicitType : funcTy->implicitParamTys) {
         if (implicitType == nullptr || implicitType->IsInvalid()) {
-            diag.DiagnoseRefactor(DiagKindRefactor::sema_invalid_implicit_ty, ce.leftParenPos, implicitType == nullptr ? "null" : implicitType->String());
+            diag.DiagnoseRefactor(DiagKindRefactor::sema_invalid_implicit_ty, beginPos, implicitType == nullptr ? "null" : implicitType->String());
             ok = false;
             continue;
         }
         if (implicitType->HasGeneric()) {
-            diag.DiagnoseRefactor(DiagKindRefactor::sema_implicit_type_generic, ce.leftParenPos, implicitType == nullptr ? "null" : implicitType->String());
+            diag.DiagnoseRefactor(DiagKindRefactor::sema_implicit_type_generic, beginPos, implicitType == nullptr ? "null" : implicitType->String());
             ok = false;
             continue;
         }
@@ -2854,13 +2855,13 @@ bool TypeChecker::TypeCheckerImpl::ValidateImplicitContext(
                 break;
             } else if (candidates.size() > 1) {
                 // TODO: improve diagnostics lol (not worth doing right now)
-                diag.DiagnoseRefactor(DiagKindRefactor::sema_duplicate_implicits, ce.leftParenPos,
+                diag.DiagnoseRefactor(DiagKindRefactor::sema_duplicate_implicits, beginPos,
                     std::to_string(candidates.size()), implicitType->String(), std::to_string(scopes.size() - s));
                 ok = false;
             }
         }
         if (!found.has_value()) {
-            diag.DiagnoseRefactor(DiagKindRefactor::sema_implicit_not_found, ce.leftParenPos, implicitType->String());
+            diag.DiagnoseRefactor(DiagKindRefactor::sema_implicit_not_found, beginPos, implicitType->String());
             ok = false;
         }
 
