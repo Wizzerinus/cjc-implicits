@@ -17,6 +17,25 @@ using namespace Cangjie;
 using namespace Sema;
 using namespace TypeCheckUtil;
 
+bool TypeChecker::TypeCheckerImpl::SynthesizeTryCatch(ASTContext& ctx, TryExpr& te)
+{
+    auto throwsStruct = importManager.GetCoreDecl<StructDecl>("Throws");
+    if (throwsStruct == nullptr) {
+        // Old stdlib, can't synthesize throws
+        return SynthesizeAndReplaceIdealTy(ctx, *te.tryBlock);
+    }
+
+    std::vector<ImplicitValue> impTys;
+    for (auto& caughtTy : GenerateTryExprCaughtTypes(ctx, te)) {
+        auto throwsTy = typeManager.GetStructTy(*throwsStruct, {caughtTy});
+        impTys.push_back(ImplicitValue{throwsTy});
+    }
+    scopeManager.EnterImplicitScope(ctx, ImplicitScope{std::move(impTys)});
+    bool out = SynthesizeAndReplaceIdealTy(ctx, *te.tryBlock);
+    scopeManager.ExitImplicitScope(ctx);
+    return out;
+}
+
 Ptr<Ty> TypeChecker::TypeCheckerImpl::SynTryWithResourcesExpr(ASTContext& ctx, TryExpr& te)
 {
     auto resourceDecl = importManager.GetCoreDecl("Resource");
@@ -40,7 +59,7 @@ Ptr<Ty> TypeChecker::TypeCheckerImpl::SynTryWithResourcesExpr(ASTContext& ctx, T
         }
     }
     CJC_NULLPTR_CHECK(te.tryBlock);
-    isWellTyped = SynthesizeAndReplaceIdealTy(ctx, *te.tryBlock) && isWellTyped;
+    isWellTyped = SynthesizeTryCatch(ctx, te) && isWellTyped;
     isWellTyped = ChkTryExprCatchPatterns(ctx, te) && isWellTyped;
     for (auto& catchBlock : te.catchBlocks) {
         CJC_NULLPTR_CHECK(catchBlock);
@@ -68,7 +87,7 @@ Ptr<Ty> TypeChecker::TypeCheckerImpl::SynTryExpr(ASTContext& ctx, TryExpr& te)
         isWellTyped = SynthesizeAndReplaceIdealTy(ctx, *te.tryLambda);
     } else {
         CJC_NULLPTR_CHECK(te.tryBlock);
-        isWellTyped = SynthesizeAndReplaceIdealTy(ctx, *te.tryBlock);
+        isWellTyped = SynthesizeTryCatch(ctx, te);
     }
 
     auto optJTy = SynTryExprCatchesAndHandles(ctx, te);
@@ -287,6 +306,11 @@ bool TypeChecker::TypeCheckerImpl::ChkTryExprFinallyBlock(ASTContext& ctx, const
 
 bool TypeChecker::TypeCheckerImpl::ChkTryExprCatchPatterns(ASTContext& ctx, TryExpr& te)
 {
+    return GenerateTryExprCaughtTypes(ctx, te).empty();
+}
+
+std::vector<Ptr<Ty>> TypeChecker::TypeCheckerImpl::GenerateTryExprCaughtTypes(ASTContext& ctx, TryExpr& te)
+{
     std::vector<Ptr<Ty>> included{};
     auto exception = importManager.GetCoreDecl<ClassDecl>(CLASS_EXCEPTION);
     for (auto& pattern : te.catchPatterns) {
@@ -294,18 +318,18 @@ bool TypeChecker::TypeCheckerImpl::ChkTryExprCatchPatterns(ASTContext& ctx, TryE
         if (pattern->astKind == ASTKind::WILDCARD_PATTERN) {
             if (exception == nullptr ||
                 !ChkTryWildcardPattern(exception->ty, *StaticAs<ASTKind::WILDCARD_PATTERN>(pattern.get()), included)) {
-                return false;
+                return {};
             }
             included.push_back(exception->ty);
         } else if (pattern->astKind == ASTKind::EXCEPT_TYPE_PATTERN) {
             if (!ChkExceptTypePattern(ctx, *StaticAs<ASTKind::EXCEPT_TYPE_PATTERN>(pattern.get()), included)) {
-                return false;
+                return {};
             }
         } else {
-            return false;
+            return {};
         }
     }
-    return true;
+    return included;
 }
 
 bool TypeChecker::TypeCheckerImpl::ChkTryExprHandlePatterns(ASTContext& ctx, TryExpr& te)

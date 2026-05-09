@@ -145,6 +145,7 @@ private:
      */
     Ptr<AST::Ty> Synthesize(ASTContext& ctx, Ptr<AST::Node> node);
     bool SynthesizeAndReplaceIdealTy(ASTContext& ctx, AST::Node& node);
+    bool SynthesizeTryCatch(ASTContext& ctx, AST::TryExpr& te);
     /**
      * Main entry of the check mode of the type checking.
      */
@@ -740,6 +741,7 @@ private:
     bool ChkTryExpr(ASTContext& ctx, AST::Ty& tgtTy, AST::TryExpr& te);
     bool ChkTryExprCatchesAndHandles(ASTContext& ctx, AST::Ty& tgtTy, AST::TryExpr& te);
     bool ChkTryExprCatchPatterns(ASTContext& ctx, AST::TryExpr& te);
+    std::vector<Ptr<AST::Ty>> GenerateTryExprCaughtTypes(ASTContext& ctx, AST::TryExpr& te);
     bool ChkTryExprHandlePatterns(ASTContext& ctx, AST::TryExpr& te);
     bool ChkHandler(ASTContext& ctx, AST::Handler& handler, AST::Ty& tgtTy);
     bool ValidateBlockInTryHandle(AST::Block& block);
