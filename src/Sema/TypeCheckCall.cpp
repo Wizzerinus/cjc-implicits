@@ -2814,6 +2814,17 @@ bool TypeChecker::TypeCheckerImpl::PostCheckCallExpr(
     return ValidateImplicitContext(ctx, ce, func.ty, typeMapping);
 }
 
+std::optional<std::string> GetExceptionNameFromThrowsType(Ptr<Ty> ty) {
+    if (auto structTy = DynamicCast<StructTy>(ty)) {
+        if (structTy->declPtr->fullPackageName == CORE_PACKAGE_NAME && structTy->declPtr->identifier == "Throws") {
+            if (structTy->typeArgs.size() == 1) {
+                return structTy->typeArgs[0]->String();
+            }
+        }
+    }
+    return {};
+}
+
 bool TypeChecker::TypeCheckerImpl::ValidateImplicitContext(
     const ASTContext& ctx, CallExpr& ce, Ptr<Ty> ty, const std::optional<SubstPack>& typeMapping)
 {
@@ -2861,7 +2872,39 @@ bool TypeChecker::TypeCheckerImpl::ValidateImplicitContext(
             }
         }
         if (!found.has_value()) {
-            diag.DiagnoseRefactor(DiagKindRefactor::sema_implicit_not_found, beginPos, implicitType->String());
+            // Check if it's an Throws<> capability for a better error message
+            bool shouldDiagnose = true;
+            auto exnName = GetExceptionNameFromThrowsType(implicitType);
+            if (exnName.has_value()) {
+                shouldDiagnose = false;
+                auto ident = exnName.value();
+                auto builder = diag.DiagnoseRefactor(DiagKindRefactor::sema_missing_throws_cap, beginPos, ident);
+
+                std::string exns;
+                for (auto scope : scopeManager.FetchImplicitScopes(ctx)) {
+                    for (auto scopedItem : scope.items) {
+                        auto caughtExn = GetExceptionNameFromThrowsType(scopedItem.type);
+                        if (caughtExn.has_value()) {
+                            if (!exns.empty()) {
+                                exns += ", ";
+                            }
+                            exns += caughtExn.value();
+                        }
+                    }
+                }
+                if (!exns.empty()) {
+                    auto note = SubDiagnostic("allowed exception types in this section of code are " + exns);
+                    builder.AddNote(note);
+                }
+                
+                auto note = SubDiagnostic("add a using() declaration or add a try-catch block");
+                builder.AddNote(note);
+            }
+
+            if (shouldDiagnose) {
+                diag.DiagnoseRefactor(DiagKindRefactor::sema_implicit_not_found, beginPos, implicitType->String());
+            }
+
             ok = false;
         }
 
