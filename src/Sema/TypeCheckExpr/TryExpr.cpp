@@ -306,7 +306,7 @@ bool TypeChecker::TypeCheckerImpl::ChkTryExprFinallyBlock(ASTContext& ctx, const
 
 bool TypeChecker::TypeCheckerImpl::ChkTryExprCatchPatterns(ASTContext& ctx, TryExpr& te)
 {
-    return GenerateTryExprCaughtTypes(ctx, te).empty();
+    return !GenerateTryExprCaughtTypes(ctx, te).empty();
 }
 
 std::vector<Ptr<Ty>> TypeChecker::TypeCheckerImpl::GenerateTryExprCaughtTypes(ASTContext& ctx, TryExpr& te)
