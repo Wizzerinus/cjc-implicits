@@ -331,6 +331,17 @@ void TypeChecker::TypeCheckerImpl::CheckFuncType(ASTContext& ctx, FuncType& ft)
     }
     CJC_NULLPTR_CHECK(ft.retType);
     CheckReferenceTypeLegality(ctx, *ft.retType);
+    if (ft.usingType.has_value()) {
+        if (ft.isC && !ft.usingType.value()->paramTypes.empty()) {
+            diag.DiagnoseRefactor(DiagKindRefactor::sema_implicits_cfunc, ft);
+            return;
+        }
+        std::vector<Ptr<Ty>> types;
+        for (auto& it : ft.usingType.value()->paramTypes) {
+            types.push_back(it->ty);
+        }
+        CheckTypesAreDistinct(ft, types);
+    }
     if (!ft.isC) {
         return;
     }
@@ -341,6 +352,26 @@ void TypeChecker::TypeCheckerImpl::CheckFuncType(ASTContext& ctx, FuncType& ft)
         return;
     }
     CheckCFuncReturnType(*ft.retType);
+}
+
+bool TypeChecker::TypeCheckerImpl::CheckTypesAreDistinct(const Node& node, const std::vector<Ptr<Ty>>& types) {
+    for (size_t i = 0; i < types.size(); i++) {
+        for (size_t j = 0; j < i; j++) {
+            if (typeManager.IsTyEqual(types[i], types[j])) {
+                diag.DiagnoseRefactor(DiagKindRefactor::sema_duplicate_implicit_type, node, std::to_string(j + 1), std::to_string(i + 1), types[i]->String());
+                return false;
+            } else if (typeManager.IsSubtype(types[i], types[j], false, false)) {
+                diag.DiagnoseRefactor(DiagKindRefactor::sema_implicit_subtype_relation, node,
+                    std::to_string(i + 1), types[i]->String(), std::to_string(j + 1), types[j]->String());
+                return false;
+            } else if (typeManager.IsSubtype(types[j], types[i], false, false)) {
+                diag.DiagnoseRefactor(DiagKindRefactor::sema_implicit_subtype_relation, node,
+                    std::to_string(j + 1), types[j]->String(), std::to_string(i + 1), types[i]->String());
+                return false;
+            }
+        }
+    }
+    return true;
 }
 
 void TypeChecker::TypeCheckerImpl::CheckCFuncReturnType(const Type& type)

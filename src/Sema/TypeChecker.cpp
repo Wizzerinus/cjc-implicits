@@ -221,6 +221,15 @@ bool TypeChecker::TypeCheckerImpl::CheckFuncBody(ASTContext& ctx, FuncBody& fb)
     if (!CheckNormalFuncBody(ctx, fb, paramTys)) {
         return false;
     }
+    if (fb.implicitParamList.has_value()) {
+        std::vector<Ptr<Ty>> types;
+        for (auto& it : fb.implicitParamList.value()->params) {
+            types.push_back(it->type->ty);
+        }
+        if (!CheckTypesAreDistinct(fb, types)) {
+            return false;
+        }
+    }
     return true;
 }
 

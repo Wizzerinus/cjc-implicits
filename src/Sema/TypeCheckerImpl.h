@@ -1233,6 +1233,7 @@ private:
     void CheckCFuncType(ASTContext& ctx, const AST::RefType& rt);
     void CheckTupleType(ASTContext& ctx, AST::TupleType& tt);
     void CheckFuncType(ASTContext& ctx, AST::FuncType& ft);
+    bool CheckTypesAreDistinct(const AST::Node& node, const std::vector<Ptr<AST::Ty>>& types);
     void CheckOptionType(ASTContext& ctx, const AST::OptionType& ot);
     void CheckVArrayType(ASTContext& ctx, const AST::VArrayType& vt);
     std::tuple<bool, std::string> CheckVArrayWithRefType(AST::Ty& ty, std::unordered_set<Ptr<AST::Ty>>& traversedTy);
