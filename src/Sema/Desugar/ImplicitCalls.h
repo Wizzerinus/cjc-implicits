@@ -32,10 +32,11 @@ private:
     AST::VisitAction RewriteAnyNode(AST::Node& n);
     AST::VisitAction RewriteNameReferenceExpr(AST::NameReferenceExpr& nre);
     AST::VisitAction RewriteMemberAccess(AST::MemberAccess& ma);
+    AST::VisitAction RewriteCallExpr(AST::CallExpr& ce);
+    AST::VisitAction RewriteFuncBody(AST::FuncBody& fb);
     void RewriteType(Ptr<AST::Ty>& ty);
 
     TypeManager& typeManager;
-    std::unordered_set<AST::Ty*> rewrittenTypes;
 };
 } // namespace Cangjie
 

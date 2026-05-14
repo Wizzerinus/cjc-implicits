@@ -73,6 +73,7 @@ using GCBlames = std::map<Ptr<AST::Ty>, std::map<Ptr<AST::Ty>, std::set<Ptr<cons
 // For implicits
 struct ImplicitValue {
     Ptr<AST::Ty> type;
+    Ptr<AST::Decl> valueDecl;
 };
 
 struct ImplicitScope {

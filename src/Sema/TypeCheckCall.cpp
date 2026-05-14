@@ -2850,7 +2850,7 @@ bool TypeChecker::TypeCheckerImpl::ValidateImplicitContext(
             ok = false;
             continue;
         }
-        std::optional<std::tuple<size_t, size_t>> found;
+        std::optional<Ptr<Decl>> found;
         auto& scopes = scopeManager.FetchImplicitScopes(ctx);
         for (size_t s = scopes.size(); s > 0; s--) {
             auto& scope = scopes[s - 1];
@@ -2862,7 +2862,7 @@ bool TypeChecker::TypeCheckerImpl::ValidateImplicitContext(
                 }
             }
             if (candidates.size() == 1) {
-                found = {s - 1, candidates[0]};
+                found = scope.items[candidates[0]].valueDecl;
                 break;
             } else if (candidates.size() > 1) {
                 // TODO: improve diagnostics lol (not worth doing right now)
@@ -2908,8 +2908,10 @@ bool TypeChecker::TypeCheckerImpl::ValidateImplicitContext(
             ok = false;
         }
 
-        // TODO: save found somewhere?
-        (void)(ce);
+        if (ok) {
+            auto expr = CreateRefExpr(*found.value());
+            ce.implicitlyAssignedArgs.emplace_back(CreateFuncArg(std::move(expr), "", implicitType));
+        }
     }
     return ok;
 }

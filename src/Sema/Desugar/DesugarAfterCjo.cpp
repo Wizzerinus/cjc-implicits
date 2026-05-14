@@ -92,14 +92,60 @@ VisitAction ImplicitCalls::RewriteMemberAccess(MemberAccess& ma)
     return RewriteNameReferenceExpr(ma);
 }
 
+VisitAction ImplicitCalls::RewriteCallExpr(CallExpr& ce)
+{
+    if (ce.desugarArgs.has_value()) {
+        std::vector<Ptr<FuncArg>> newDesugarArgs;
+        for (auto& arg : ce.implicitlyAssignedArgs) {
+            CJC_NULLPTR_CHECK(arg);
+            newDesugarArgs.emplace_back(arg.get());
+        }
+        for (auto& arg : ce.desugarArgs.value()) {
+            newDesugarArgs.emplace_back(arg.get());
+        }
+        ce.desugarArgs = std::move(newDesugarArgs);
+    }
+
+    std::vector<OwnedPtr<FuncArg>> newArgs;
+    for (auto& arg : ce.implicitlyAssignedArgs) {
+        CJC_NULLPTR_CHECK(arg);
+        newArgs.emplace_back(std::move(arg));
+    }
+    for (auto& arg : ce.args) {
+        newArgs.emplace_back(std::move(arg));
+    }
+    ce.args = std::move(newArgs);
+
+    ce.implicitlyAssignedArgs.clear();
+    return RewriteAnyNode(ce);
+}
+
+VisitAction ImplicitCalls::RewriteFuncBody(FuncBody& fb)
+{
+    if (fb.implicitParamList.has_value()) {
+        CJC_ASSERT(fb.paramLists.size() == 1);
+        std::vector<OwnedPtr<FuncParam>> newParams;
+        for (auto& arg : fb.implicitParamList.value()->params) {
+            newParams.emplace_back(std::move(arg));
+        }
+        for (auto& arg : fb.paramLists[0]->params) {
+            newParams.emplace_back(std::move(arg));
+        }
+        fb.paramLists[0]->params = std::move(newParams);
+        fb.implicitParamList = {};
+    }
+    return RewriteAnyNode(fb);
+}
+
 void ImplicitCalls::RewriteType(Ptr<Ty>& ty) {
-    if (ty == nullptr || rewrittenTypes.find(ty) != rewrittenTypes.end()) {
+    if (ty == nullptr) {
         return;
     }
-    rewrittenTypes.insert(ty);
     if (auto funcTy = DynamicCast<FuncTy>(ty)) {
         if (!funcTy->implicitParamTys.empty()) {
-            ty = typeManager.GetFunctionTy(funcTy->typeArgs, {}, funcTy->retTy, {funcTy->isC, funcTy->isClosureTy, funcTy->hasVariableLenArg, funcTy->noCast});
+            std::vector<Ptr<Ty>> typeArgs(funcTy->typeArgs);
+            typeArgs.pop_back();  // remove the return value
+            ty = typeManager.GetFunctionTy(typeArgs, {}, funcTy->retTy, {funcTy->isC, funcTy->isClosureTy, funcTy->hasVariableLenArg, funcTy->noCast});
         }
     }
     for (auto& it : ty->typeArgs) {
@@ -121,6 +167,8 @@ void ImplicitCalls::DesugarImplicitCalls(Package& pkg)
             [this](Type& t) { return RewriteAnyType(t); },
             [this](MemberAccess& ma) { return RewriteMemberAccess(ma); },
             [this](NameReferenceExpr& nre) { return RewriteNameReferenceExpr(nre); },
+            [this](CallExpr& ce) { return RewriteCallExpr(ce); },
+            [this](FuncBody& fb) { return RewriteFuncBody(fb); },
             [this](Node& n) { return RewriteAnyNode(n); },
             []() { return VisitAction::WALK_CHILDREN; });
     };

@@ -499,8 +499,11 @@ Ptr<AST::Ty> TypeChecker::TypeCheckerImpl::SynthesizeWithUsing(ASTContext& ctx, 
             CheckFuncParamList(ctx, *fpl);
             auto tupleTy = DynamicCast<AST::TupleTy>(fpl->ty);
             CJC_NULLPTR_CHECK(tupleTy);
-            for (auto& ty : tupleTy->typeArgs) {
-                impTys.push_back(ImplicitValue{ty});
+            CJC_ASSERT(fpl->params.size() == tupleTy->typeArgs.size());
+            for (size_t i = 0; i < fpl->params.size(); i++) {
+                auto& ty = tupleTy->typeArgs[i];
+                auto& decl = fpl->params[i];
+                impTys.push_back(ImplicitValue{ty, decl});
             }
             scopeManager.EnterImplicitScope(ctx, ImplicitScope{std::move(impTys)});
         }

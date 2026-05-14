@@ -1948,6 +1948,7 @@ struct TryExpr : Expr {
     Position tryPos;                              /**< Position of 'try'. */
     Position lParen;                              /**< Resource left paren position. */
     std::vector<OwnedPtr<VarDecl>> resourceSpec;  /**< Init several resources. */
+    std::vector<OwnedPtr<VarDecl>> throwsSpec;    /**< throws added into the implicit scope. */
     std::vector<Position> resourceSpecCommaPos;   /**< Resource comma positions. */
     Position rParen;                              /**< Resource right paren position. */
     OwnedPtr<Block> tryBlock;                     /**< Try block. */
@@ -2474,6 +2475,7 @@ struct CallExpr : Expr {
         desugarArgs; /**< It points to args and defaultArgs, which are used to do the real parameter sorting. When
                         it is none, the callExpr does not go into args reordering. */
     std::vector<OwnedPtr<FuncArg>> defaultArgs; /**< The defaultArgs used to store supplements for default args*/
+    std::vector<OwnedPtr<FuncArg>> implicitlyAssignedArgs;  /** generated during Sema */
 
     bool needCheckToTokens{
         false}; /**< A flag to mark whether the call is needed to check implementing interface ToTokens . */

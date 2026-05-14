@@ -12,6 +12,8 @@
 #include "TypeCheckUtil.h"
 
 #include "cangjie/AST/Match.h"
+#include "cangjie/AST/Clone.h"
+#include "cangjie/AST/Create.h"
 
 using namespace Cangjie;
 using namespace Sema;
@@ -26,9 +28,20 @@ bool TypeChecker::TypeCheckerImpl::SynthesizeTryCatch(ASTContext& ctx, TryExpr& 
     }
 
     std::vector<ImplicitValue> impTys;
-    for (auto& caughtTy : GenerateTryExprCaughtTypes(ctx, te)) {
+    auto caughtTys = GenerateTryExprCaughtTypes(ctx, te);
+    for (size_t i = 0; i < caughtTys.size(); i++) {
+        auto& caughtTy = caughtTys[i];
         auto throwsTy = typeManager.GetStructTy(*throwsStruct, {caughtTy});
-        impTys.push_back(ImplicitValue{throwsTy});
+
+        auto mkThrowsExpr = CreateRefExpr(*throwsStruct);
+        auto throwsType = MakeOwned<Type>();
+        throwsType->ty = throwsTy;
+        mkThrowsExpr->typeArguments.emplace_back(ASTCloner::Clone<Type>(throwsType));
+        auto throwsCall = CreateCallExpr(std::move(mkThrowsExpr), {}, nullptr, throwsTy, CallKind::CALL_STRUCT_CREATION);
+        auto throwsDecl = CreateVarDecl("throwDecl$" + std::to_string(i), std::move(throwsCall), throwsType);
+
+        impTys.push_back(ImplicitValue{throwsTy, throwsDecl});
+        te.throwsSpec.push_back(std::move(throwsDecl));
     }
     scopeManager.EnterImplicitScope(ctx, ImplicitScope{std::move(impTys)});
     bool out = SynthesizeAndReplaceIdealTy(ctx, *te.tryBlock);

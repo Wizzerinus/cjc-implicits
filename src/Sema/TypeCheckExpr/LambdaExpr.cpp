@@ -11,6 +11,8 @@
 #include "TypeCheckUtil.h"
 #include "ExtraScopes.h"
 
+#include "cangjie/AST/Create.h"
+
 using namespace Cangjie;
 using namespace AST;
 using namespace Sema;
@@ -415,9 +417,17 @@ bool TypeChecker::TypeCheckerImpl::ChkLamBody(ASTContext& ctx, Ty& targetTy, Fun
         if (!funcTy->implicitParamTys.empty()) {
             shouldCloseScope = true;
             std::vector<ImplicitValue> impTys;
-            for (auto& argTy : funcTy->implicitParamTys) {
-                impTys.push_back(ImplicitValue{argTy});
+            CJC_ASSERT(!lamFb.implicitParamList.has_value());
+            std::vector<Ptr<FuncParam>> genParams;
+            for (size_t i = 0; i < funcTy->implicitParamTys.size(); i++) {
+                auto& argTy = funcTy->implicitParamTys[i];
+                auto paramType = MakeOwned<Type>();
+                paramType->ty = argTy;
+                auto funcParam = CreateFuncParam("lambda_imp$" + std::to_string(i), std::move(paramType), nullptr, argTy);
+                impTys.push_back(ImplicitValue{argTy, funcParam});
+                genParams.emplace_back(std::move(funcParam));
             }
+            lamFb.implicitParamList = CreateFuncParamList(genParams);
             scopeManager.EnterImplicitScope(ctx, ImplicitScope{std::move(impTys)});
         }
     }
