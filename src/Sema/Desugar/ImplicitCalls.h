@@ -19,7 +19,7 @@
 namespace Cangjie {
 class ImplicitCalls {
 public:
-    explicit ImplicitCalls(TypeManager& typeManager) : typeManager(typeManager)
+    explicit ImplicitCalls()
     {
     }
     ~ImplicitCalls() = default;
@@ -34,9 +34,7 @@ private:
     AST::VisitAction RewriteMemberAccess(AST::MemberAccess& ma);
     AST::VisitAction RewriteCallExpr(AST::CallExpr& ce);
     AST::VisitAction RewriteFuncBody(AST::FuncBody& fb);
-    void RewriteType(Ptr<AST::Ty>& ty);
-
-    TypeManager& typeManager;
+    void RewriteType(Ptr<AST::Ty> ty);
 };
 } // namespace Cangjie
 

@@ -37,7 +37,7 @@ void TypeChecker::TypeCheckerImpl::PerformDesugarAfterCjo([[maybe_unused]] ASTCo
     if (pkg.files.empty()) {
         return;
     }
-    ImplicitCalls imps(typeManager);
+    ImplicitCalls imps;
     imps.DesugarImplicitCalls(pkg);
 }
 
@@ -137,7 +137,7 @@ VisitAction ImplicitCalls::RewriteFuncBody(FuncBody& fb)
     return RewriteAnyNode(fb);
 }
 
-void ImplicitCalls::RewriteType(Ptr<Ty>& ty) {
+void ImplicitCalls::RewriteType(Ptr<Ty> ty) {
     if (ty == nullptr) {
         return;
     }
@@ -145,7 +145,8 @@ void ImplicitCalls::RewriteType(Ptr<Ty>& ty) {
         if (!funcTy->implicitParamTys.empty()) {
             std::vector<Ptr<Ty>> typeArgs(funcTy->typeArgs);
             typeArgs.pop_back();  // remove the return value
-            ty = typeManager.GetFunctionTy(typeArgs, {}, funcTy->retTy, {funcTy->isC, funcTy->isClosureTy, funcTy->hasVariableLenArg, funcTy->noCast});
+            funcTy->paramTys = typeArgs;
+            funcTy->implicitParamTys.clear();
         }
     }
     for (auto& it : ty->typeArgs) {

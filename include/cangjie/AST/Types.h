@@ -666,16 +666,16 @@ struct TupleTy : Ty {
 struct FuncTy : Ty {
     /**
      * Function param types.
-     * W: Sema, AST2CHIR (to merge with implicit parameters).
+     * W: Sema, DesugarAfterCJO (to merge with implicit parameters).
      * R: ImportManager, Sema, GenericInstantiator, AST2CHIR, CHIR, HLIRCodeGen, LLVMCodeGen.
      */
-    const std::vector<Ptr<Ty>> paramTys{};
+    std::vector<Ptr<Ty>> paramTys{};
     /**
      * Implicit parameters that this function requires, in order of their application.
-     * W: Sema.
-     * R: Sema, AST2CHIR.
+     * W: Sema, DesugarAfterCJO.
+     * R: Sema, DesugarAfterCJO.
      */
-    const std::vector<Ptr<Ty>> implicitParamTys{};
+    std::vector<Ptr<Ty>> implicitParamTys{};
     /**
      * Function return type.
      * W: no.
