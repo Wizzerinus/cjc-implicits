@@ -418,7 +418,7 @@ bool TypeChecker::TypeCheckerImpl::ChkLamBody(ASTContext& ctx, Ty& targetTy, Fun
             shouldCloseScope = true;
             std::vector<ImplicitValue> impTys;
             CJC_ASSERT(!lamFb.implicitParamList.has_value());
-            std::vector<Ptr<FuncParam>> genParams;
+            std::vector<OwnedPtr<FuncParam>> genParams;
             for (size_t i = 0; i < funcTy->implicitParamTys.size(); i++) {
                 auto& argTy = funcTy->implicitParamTys[i];
                 auto paramType = MakeOwned<Type>();
@@ -427,7 +427,7 @@ bool TypeChecker::TypeCheckerImpl::ChkLamBody(ASTContext& ctx, Ty& targetTy, Fun
                 impTys.push_back(ImplicitValue{argTy, funcParam});
                 genParams.emplace_back(std::move(funcParam));
             }
-            lamFb.implicitParamList = CreateFuncParamList(genParams);
+            lamFb.implicitParamList = CreateFuncParamList(std::move(genParams));
             scopeManager.EnterImplicitScope(ctx, ImplicitScope{std::move(impTys)});
         }
     }
