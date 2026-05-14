@@ -122,6 +122,12 @@ bool DefaultCompilerInstance::PerformGenericInstantiation()
     return CompilerInstance::PerformGenericInstantiation();
 }
 
+bool DefaultCompilerInstance::PerformDesugarAfterCjo()
+{
+    Utils::ProfileRecorder recorder("Main Stage", "Desugar after CJO");
+    return CompilerInstance::PerformDesugarAfterCjo();
+}
+
 bool DefaultCompilerInstance::PerformCHIRCompilation()
 {
     Utils::ProfileRecorder recorder("Main Stage", "CHIR");

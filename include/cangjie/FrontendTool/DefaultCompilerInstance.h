@@ -34,6 +34,7 @@ public:
     bool PerformCHIRCompilation() override;
     bool PerformCodeGen() override;
     bool PerformCjoSaving() override;
+    bool PerformDesugarAfterCjo() override;
     bool PerformResultsSaving() override;
 
     bool PerformMangling() override;

@@ -117,6 +117,7 @@ bool CompilerInstance::InitCompilerInstance()
     performMap.insert_or_assign(CompileStage::OVERFLOW_STRATEGY, &CompilerInstance::PerformOverflowStrategy);
     performMap.insert_or_assign(CompileStage::MANGLING, &CompilerInstance::PerformMangling);
     performMap.insert_or_assign(CompileStage::SAVE_CJO, &CompilerInstance::PerformCjoSaving);
+    performMap.insert_or_assign(CompileStage::DESUGAR_AFTER_CJO, &CompilerInstance::PerformDesugarAfterCjo);
     performMap.insert_or_assign(CompileStage::CHIR, &CompilerInstance::PerformCHIRCompilation);
     performMap.insert_or_assign(CompileStage::CODEGEN, &CompilerInstance::PerformCodeGen);
     performMap.insert_or_assign(CompileStage::SAVE_RESULTS, &CompilerInstance::PerformResultsSaving);
@@ -574,6 +575,20 @@ bool CompilerInstance::PerformDesugarAfterSema()
     compileStrategy->DesugarAfterSema();
     if (!srcPkgs.empty() && invocation.globalOptions.NeedDumpASTToFile()) {
         DumpAST(GetSourcePackages(), invocation.globalOptions.output, "desugar");
+    }
+    return true;
+}
+
+bool CompilerInstance::PerformDesugarAfterCjo()
+{
+    for (auto& srcPkg : srcPkgs) {
+        auto astCtx = GetASTContextByPackage(srcPkg.get());
+        CJC_ASSERT(astCtx);
+        typeChecker->PerformDesugarAfterCjo(*astCtx, *srcPkg);
+    }
+
+    if (!srcPkgs.empty() && invocation.globalOptions.NeedDumpASTToFile()) {
+        DumpAST(GetSourcePackages(), invocation.globalOptions.output, "desugar-cjo");
     }
     return true;
 }
