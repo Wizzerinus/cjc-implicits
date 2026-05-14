@@ -722,8 +722,8 @@ struct FuncTy : Ty {
           hasVariableLenArg(cfg.hasVariableLenArg),
           noCast(cfg.noCast)
     {
-        typeArgs = paramTys;
-        for (auto& imp : implicitParamTys) {
+        typeArgs = implicitParamTys;
+        for (auto& imp : paramTys) {
             typeArgs.emplace_back(imp);
         }
         // Currently, only CFunc has variable length parameters.

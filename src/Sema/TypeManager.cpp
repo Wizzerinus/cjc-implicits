@@ -2564,14 +2564,14 @@ Ptr<AST::Ty> TypeManager::SubstituteTypeAliasInTy(AST::Ty& ty, bool needSubstitu
             auto returnTy = typeArgs.back();
             typeArgs.pop_back();
             auto& funcTy = static_cast<FuncTy&>(ty);
-            std::vector<Ptr<Ty>> implicits;
-            for (size_t i = 0; i < funcTy.implicitParamTys.size(); i++) {
-                implicits.emplace_back(typeArgs.back());
+            std::vector<Ptr<Ty>> normals;
+            for (size_t i = 0; i < funcTy.paramTys.size(); i++) {
+                normals.emplace_back(typeArgs.back());
                 typeArgs.pop_back();
             }
-            std::reverse(implicits.begin(), implicits.end());
+            std::reverse(normals.begin(), normals.end());
             return GetFunctionTy(
-                typeArgs, implicits, returnTy, {funcTy.isC, false, funcTy.hasVariableLenArg});
+                normals, typeArgs, returnTy, {funcTy.isC, false, funcTy.hasVariableLenArg});
         }
         case TypeKind::TYPE: {
             return GetUnaliasedTypeFromTypeAlias(
