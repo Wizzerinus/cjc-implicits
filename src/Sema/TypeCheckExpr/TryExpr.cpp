@@ -26,23 +26,36 @@ bool TypeChecker::TypeCheckerImpl::SynthesizeTryCatch(ASTContext& ctx, TryExpr& 
         // Old stdlib, can't synthesize throws
         return SynthesizeAndReplaceIdealTy(ctx, *te.tryBlock);
     }
+    auto& decls = throwsStruct->GetMemberDecls();
+    CJC_ASSERT(decls.size() == 1);
+    auto firstDecl = decls[0].get();
+    auto fd = DynamicCast<FuncDecl>(firstDecl);
+    CJC_ASSERT(fd != nullptr);
 
     std::vector<ImplicitValue> impTys;
     auto caughtTys = GenerateTryExprCaughtTypes(ctx, te);
+    std::vector<OwnedPtr<Node>> tryBlockCode;
     for (size_t i = 0; i < caughtTys.size(); i++) {
         auto& caughtTy = caughtTys[i];
         auto throwsTy = typeManager.GetStructTy(*throwsStruct, {caughtTy});
 
-        auto mkThrowsExpr = CreateRefExpr(*throwsStruct);
+        auto mkThrowsExpr = CreateRefExpr(*decls[0]);
         auto throwsType = MakeOwned<Type>();
         throwsType->ty = throwsTy;
-        mkThrowsExpr->typeArguments.emplace_back(ASTCloner::Clone<Type>(throwsType));
-        auto throwsCall = CreateCallExpr(std::move(mkThrowsExpr), {}, nullptr, throwsTy, CallKind::CALL_STRUCT_CREATION);
+        auto caughtType = MakeOwned<Type>();
+        caughtType->ty = caughtTy;
+        mkThrowsExpr->typeArguments.emplace_back(std::move(caughtType));
+        auto throwsCall = CreateCallExpr(std::move(mkThrowsExpr), {}, fd, throwsTy, CallKind::CALL_STRUCT_CREATION);
         auto throwsDecl = CreateVarDecl("throwDecl$" + std::to_string(i), std::move(throwsCall), throwsType);
 
         impTys.push_back(ImplicitValue{throwsTy, throwsDecl});
-        te.throwsSpec.push_back(std::move(throwsDecl));
+        // te.throwsSpec.push_back(std::move(throwsDecl));
+        tryBlockCode.push_back(std::move(throwsDecl));
     }
+    for (auto& it : te.tryBlock->body) {
+        tryBlockCode.push_back(std::move(it));
+    }
+    te.tryBlock->body = std::move(tryBlockCode);
     scopeManager.EnterImplicitScope(ctx, ImplicitScope{std::move(impTys)});
     bool out = SynthesizeAndReplaceIdealTy(ctx, *te.tryBlock);
     scopeManager.ExitImplicitScope(ctx);
