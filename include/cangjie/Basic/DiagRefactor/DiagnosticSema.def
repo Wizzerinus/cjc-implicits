@@ -417,5 +417,7 @@ ERROR(sema_duplicate_implicit_type, "The implicit parameters %s and %s of this f
 ERROR(sema_implicit_subtype_relation, "The implicit parameter %s of this function (%s) is a subtype of implicit parameter %s (%s), this makes the latter unusable and is not allowed")
 ERROR(sema_missing_throws_cap, "This function call may throw exception type '%s', which is not caught in the current context")
 ERROR(sema_implicits_cfunc, "Function types used for C FFI cannot have implicit parameters")
+ERROR(sema_incompatible_throws_struct, "Throws struct in the standard library has an incompatible signature. This is likely a bug in cjc unless you have edited its standard library.")
+ERROR(sema_manually_made_throws, "Throws capability may not be created manually and should only be emitted by the compiler")
 
 ERROR(sema_diag_end, "")

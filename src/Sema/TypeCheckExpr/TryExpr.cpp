@@ -27,10 +27,16 @@ bool TypeChecker::TypeCheckerImpl::SynthesizeTryCatch(ASTContext& ctx, TryExpr& 
         return SynthesizeAndReplaceIdealTy(ctx, *te.tryBlock);
     }
     auto& decls = throwsStruct->GetMemberDecls();
-    CJC_ASSERT(decls.size() == 1);
+    if (decls.size() != 1) {
+        diag.DiagnoseRefactor(DiagKindRefactor::sema_incompatible_throws_struct, te);
+        return false;
+    }
     auto firstDecl = decls[0].get();
     auto fd = DynamicCast<FuncDecl>(firstDecl);
-    CJC_ASSERT(fd != nullptr);
+    if (fd == nullptr) {
+        diag.DiagnoseRefactor(DiagKindRefactor::sema_incompatible_throws_struct, te);
+        return false;
+    }
 
     std::vector<ImplicitValue> impTys;
     auto caughtTys = GenerateTryExprCaughtTypes(ctx, te);
