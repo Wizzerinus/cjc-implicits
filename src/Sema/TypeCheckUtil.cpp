@@ -348,7 +348,6 @@ bool IsOverrideOrShadow(TypeManager& typeManager, const FuncDecl& src, const Fun
         for (auto& it : targetParamTys) {
             it = typeManager.GetInstantiatedTy(it, typeMapping);
         }
-        // TODO: yeah emit that one diagnostic
         if (typeManager.IsFuncParameterTypesIdentical(srcParamTys, targetParamTys)) {
             bool isCrossPlatform =
                 (src.TestAttr(AST::Attribute::COMMON) && target.TestAttr(AST::Attribute::SPECIFIC)) ||

@@ -413,7 +413,6 @@ void StructInheritanceChecker::CheckCStruct(const Ty& ty, const Type& typeArg)
     }
 }
 
-// TODO: refer to this to implement the diagnostic
 void StructInheritanceChecker::DiagnoseForInstantiatedMember(
     const MemberSignature& parent, const MemberSignature& child) const
 {

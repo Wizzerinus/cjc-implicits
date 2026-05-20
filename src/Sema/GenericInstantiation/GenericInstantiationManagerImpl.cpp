@@ -789,7 +789,6 @@ Ptr<Decl> GIM::GenericInstantiationManagerImpl::SelectTypeMatchedImplMember(
         }
         auto found = std::find_if(usableDecls.begin(), usableDecls.end(), [this, iFuncTy](auto it) {
             auto fty = DynamicCast<FuncTy*>(it->ty);
-            // TODO: you know the drill
             return fty && iFuncTy && typeManager.IsFuncParameterTypesIdentical(*fty, *iFuncTy);
         });
         if (found != usableDecls.end()) {

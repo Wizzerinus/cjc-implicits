@@ -464,7 +464,6 @@ bool GIM::GenericInstantiationManagerImpl::IsImplementationFunc(
     // Actual type will be decided in rearrange stage.
     return std::any_of(interfaceFuncTys.begin(), interfaceFuncTys.end(), [this, implementedFuncTy](auto ty) {
         return implementedFuncTy && ty &&
-        // TODO: you know the drill
             typeManager.IsFuncParameterTypesIdentical(*implementedFuncTy, *RawStaticCast<FuncTy*>(ty));
     });
 }

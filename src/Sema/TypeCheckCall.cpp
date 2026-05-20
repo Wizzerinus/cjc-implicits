@@ -760,8 +760,6 @@ bool TypeChecker::TypeCheckerImpl::CompareFuncCandidates(
         // When both candidates are member functions and they have the same size of parameters and function signatures,
         // resolve them by deciding whether one is implementing the other.
         bool sameNumberOfParams = j.fd.ty->typeArgs.size() == i.fd.ty->typeArgs.size();
-        // TODO: emit a diagnostic if the interfaces require different sets of implicits
-        // because inheritance must preserve the function type or weaken it, but sets of implicits are invariant
         if (sameNumberOfParams && typeManager.IsFuncParameterTypesIdentical(i.tysInArgOrder, j.tysInArgOrder)) {
             bool isJImplementable =
                 j.fd.outerDecl->astKind == ASTKind::INTERFACE_DECL || j.fd.TestAttr(Attribute::ABSTRACT);
@@ -2433,7 +2431,6 @@ bool TypeChecker::TypeCheckerImpl::ChkCurryCallBase(ASTContext& ctx, CallExpr& c
             }
         }
     }
-    // TODO: implicit params — base for call-target check, derive once they may participate in inference.
     auto targetForBase = typeManager.GetFunctionTy(paramTys, {}, retTy, {false, false, false, true});
     return Check(ctx, targetForBase, ce.baseFunc.get());
 }
@@ -2865,7 +2862,6 @@ bool TypeChecker::TypeCheckerImpl::ValidateImplicitContext(
                 found = scope.items[candidates[0]].valueDecl;
                 break;
             } else if (candidates.size() > 1) {
-                // TODO: improve diagnostics lol (not worth doing right now)
                 diag.DiagnoseRefactor(DiagKindRefactor::sema_duplicate_implicits, beginPos,
                     std::to_string(candidates.size()), implicitType->String(), std::to_string(scopes.size() - s));
                 ok = false;
