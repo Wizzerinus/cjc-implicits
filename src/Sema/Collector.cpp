@@ -1175,7 +1175,7 @@ void Collector::BuildSymbolTable(ASTContext& ctx, Ptr<Node> node, bool buildTrie
             for (auto& child : iwe->children) {
                 BuildSymbolTable(ctx, child.get(), buildTrie);
             }
-            BuildSymbolTable(ctx, iwe->desugarExpr.get(), buildTrie);
+            BuildSymbolTable(ctx, iwe->body.get(), buildTrie);
             scopeManager.FinalizeScope(ctx);
             break;
         }
