@@ -859,6 +859,9 @@ private:
     Ptr<AST::Ty> SynTrailingClosure(ASTContext& ctx, AST::TrailingClosureExpr& tc);
     bool ChkTrailingClosureExpr(ASTContext& ctx, AST::Ty& target, AST::TrailingClosureExpr& tc);
     void CheckMacroCall(ASTContext& ctx, AST::Node& macroNode);
+    Ptr<AST::Ty> SynImplicitWithExpr(ASTContext& ctx, AST::ImplicitWithExpr& iwe);
+    bool ChkImplicitWithExpr(ASTContext& ctx, AST::Ty& target, AST::ImplicitWithExpr& iwe);
+    void EnsureImplicitDeclarations(ASTContext& ctx, AST::ImplicitWithExpr& iwe);
 
     /**
      * Check call expressions' related APIs.

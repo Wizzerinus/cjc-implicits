@@ -615,6 +615,9 @@ void TypeChecker::TypeCheckerImpl::PerformDesugarAfterTypeCheck(ASTContext& ctx,
             case ASTKind::RESUME_EXPR:
                 DesugarResume(ctx, *StaticCast<ResumeExpr*>(node));
                 break;
+            case ASTKind::IMPLICIT_WITH_EXPR:
+                DesugarImplicitWithExpr(*StaticAs<ASTKind::IMPLICIT_WITH_EXPR>(node));
+                break;
             default:
                 break;
         }

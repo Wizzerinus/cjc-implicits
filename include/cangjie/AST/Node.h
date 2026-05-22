@@ -1948,7 +1948,6 @@ struct TryExpr : Expr {
     Position tryPos;                              /**< Position of 'try'. */
     Position lParen;                              /**< Resource left paren position. */
     std::vector<OwnedPtr<VarDecl>> resourceSpec;  /**< Init several resources. */
-    std::vector<OwnedPtr<VarDecl>> throwsSpec;    /**< throws added into the implicit scope. */
     std::vector<Position> resourceSpecCommaPos;   /**< Resource comma positions. */
     Position rParen;                              /**< Resource right paren position. */
     OwnedPtr<Block> tryBlock;                     /**< Try block. */
@@ -3098,6 +3097,7 @@ struct ImplicitWithExpr : Expr {
     Position leftParenPos;
     std::vector<OwnedPtr<Expr>> children; /**< Parameters supplied into the implicit context. */
     std::vector<Position> commaPosVector; /**< Positions of commas. */
+    std::vector<OwnedPtr<VarDecl>> synthesizedDecls;    /**< variables synthesized for expressions provided as with() arguments. */
     Position rightParenPos;
     OwnedPtr<Block> body; /**< The block inside the With. */
     ImplicitWithExpr() : Expr(ASTKind::IMPLICIT_WITH_EXPR)

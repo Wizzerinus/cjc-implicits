@@ -55,7 +55,6 @@ bool TypeChecker::TypeCheckerImpl::SynthesizeTryCatch(ASTContext& ctx, TryExpr& 
         auto throwsDecl = CreateVarDecl("throwDecl$" + std::to_string(i), std::move(throwsCall), throwsType);
 
         impTys.push_back(ImplicitValue{throwsTy, throwsDecl});
-        // te.throwsSpec.push_back(std::move(throwsDecl));
         tryBlockCode.push_back(std::move(throwsDecl));
     }
     for (auto& it : te.tryBlock->body) {

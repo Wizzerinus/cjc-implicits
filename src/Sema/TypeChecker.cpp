@@ -1081,8 +1081,7 @@ Ptr<Ty> TypeChecker::TypeCheckerImpl::Synthesize(ASTContext& ctx, Ptr<Node> node
             break;
         }
         case ASTKind::IMPLICIT_WITH_EXPR: {
-            // TODO: synthesize type for with-expressions.
-            node->ty = TypeManager::GetInvalidTy();
+            node->ty = SynImplicitWithExpr(*curCtx, *StaticAs<ASTKind::IMPLICIT_WITH_EXPR>(node));
             break;
         }
         case ASTKind::EXTEND_DECL: {
@@ -1314,7 +1313,7 @@ bool TypeChecker::TypeCheckerImpl::Check(ASTContext& ctx, Ptr<Ty> target, Ptr<No
                 break;
             }
             case ASTKind::IMPLICIT_WITH_EXPR: {
-                // TODO
+                chkRet = ChkImplicitWithExpr(*curCtx, *realTarget, *StaticAs<ASTKind::IMPLICIT_WITH_EXPR>(node));
                 break;
             }
             case ASTKind::IS_EXPR: {
