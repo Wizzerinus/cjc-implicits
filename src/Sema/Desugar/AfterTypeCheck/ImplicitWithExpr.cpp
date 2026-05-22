@@ -37,7 +37,10 @@ void DesugarImplicitWithExpr(ImplicitWithExpr& iwe)
     }
     iwe.synthesizedDecls.clear();
     auto ty = iwe.body->ty;
-    nodes.emplace_back(std::move(iwe.body));
+    for (auto& it : iwe.body->body) {
+        nodes.push_back(std::move(it));
+    }
+    iwe.body = {};
     iwe.desugarExpr = CreateBlock(std::move(nodes), ty);
     AddCurFile(*iwe.desugarExpr, iwe.curFile);
 }
