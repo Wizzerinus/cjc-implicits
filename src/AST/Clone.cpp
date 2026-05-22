@@ -966,6 +966,9 @@ OwnedPtr<ImplicitWithExpr> ASTCloner::CloneImplicitWithExpr(const ImplicitWithEx
     for (auto& child : iwe.children) {
         expr->children.push_back(CloneExpr(child.get(), visitor));
     }
+    for (auto& syn : iwe.synthesizedDecls) {
+        expr->synthesizedDecls.push_back(CloneDecl(syn.get(), visitor));
+    }
     expr->body = CloneExpr(iwe.body.get(), visitor);
     expr->withPos = iwe.withPos;
     expr->leftParenPos = iwe.leftParenPos;

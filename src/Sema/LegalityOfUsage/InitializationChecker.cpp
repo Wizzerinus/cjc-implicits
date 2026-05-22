@@ -1102,6 +1102,11 @@ bool InitializationChecker::CheckInitInExpr(Ptr<Node> node)
             for (auto& child : StaticCast<ImplicitWithExpr>(node)->children) {
                 result = result && CheckInitInExpr(child.get());
             }
+            for (auto& child : StaticCast<ImplicitWithExpr>(node)->synthesizedDecls) {
+                if (auto vd = DynamicCast<VarDecl>(child.get())) {
+                    result = result && CheckInitInExpr(vd->initializer);
+                }
+            }
             return result;
         }
         case ASTKind::IS_EXPR:

@@ -3097,7 +3097,7 @@ struct ImplicitWithExpr : Expr {
     Position leftParenPos;
     std::vector<OwnedPtr<Expr>> children; /**< Parameters supplied into the implicit context. */
     std::vector<Position> commaPosVector; /**< Positions of commas. */
-    std::vector<OwnedPtr<VarDecl>> synthesizedDecls;    /**< variables synthesized for expressions provided as with() arguments. */
+    std::vector<OwnedPtr<Decl>> synthesizedDecls;    /**< variables synthesized for expressions provided as with() arguments. */
     Position rightParenPos;
     OwnedPtr<Block> body; /**< The block inside the With. */
     ImplicitWithExpr() : Expr(ASTKind::IMPLICIT_WITH_EXPR)

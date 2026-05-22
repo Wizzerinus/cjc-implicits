@@ -749,8 +749,6 @@ void PerformDesugarBeforeTypeCheck(Node& root, bool desugarMacrocall)
             DesugarTrailingClosureExpr(*StaticAs<ASTKind::TRAIL_CLOSURE_EXPR>(node));
         } else if (node->astKind == ASTKind::SYNCHRONIZED_EXPR) {
             DesugarSynchronizedExpr(*StaticAs<ASTKind::SYNCHRONIZED_EXPR>(node));
-        } else if (node->astKind == ASTKind::IMPLICIT_WITH_EXPR) {
-            // TODO
         } else if (node->astKind == ASTKind::OPTIONAL_CHAIN_EXPR) {
             DesugarOptionalChainExpr(*StaticAs<ASTKind::OPTIONAL_CHAIN_EXPR>(node));
         } else if (node->astKind == ASTKind::INC_OR_DEC_EXPR) {

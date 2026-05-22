@@ -1152,6 +1152,11 @@ template <class NodeT> VisitAction WalkerT<NodeT>::Walk(Ptr<NodeT> curNode) cons
                         return VisitAction::STOP_NOW;
                     }
                 }
+                for (auto& it : iwe->synthesizedDecls) {
+                    if (Walk(it.get()) == VisitAction::STOP_NOW) {
+                        return VisitAction::STOP_NOW;
+                    }
+                }
                 if (Walk(iwe->body.get()) == VisitAction::STOP_NOW) {
                     return VisitAction::STOP_NOW;
                 }

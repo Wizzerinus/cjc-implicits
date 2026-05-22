@@ -1018,6 +1018,9 @@ OwnedPtr<ImplicitWithExpr> PartialInstantiation::InstantiateImplicitWithExpr(
     for (auto& child : iwe.children) {
         expr->children.push_back(InstantiateExpr(child.get(), visitor));
     }
+    for (auto& child : iwe.synthesizedDecls) {
+        expr->synthesizedDecls.push_back(InstantiateDecl(child.get(), visitor));
+    }
     expr->body = InstantiateExpr(iwe.body.get(), visitor);
     expr->withPos = iwe.withPos;
     expr->leftParenPos = iwe.leftParenPos;

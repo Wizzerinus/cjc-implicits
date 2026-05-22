@@ -1104,6 +1104,11 @@ void PrintImplicitWithExpr(unsigned indent, const ImplicitWithExpr& expr, std::o
         PrintNode(child.get(), indent + THREE_INDENT, "", stream);
     }
     PrintIndent(stream, indent + TWO_INDENT, "}");
+    PrintIndent(stream, indent + TWO_INDENT, "SynthesizedDecls {");
+    for (auto& child : expr.synthesizedDecls) {
+        PrintNode(child.get(), indent + THREE_INDENT, "", stream);
+    }
+    PrintIndent(stream, indent + TWO_INDENT, "}");
     PrintNode(expr.body.get(), indent + TWO_INDENT, "body", stream);
     PrintIndent(stream, indent, "}");
 }

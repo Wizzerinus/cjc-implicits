@@ -16,7 +16,7 @@ using namespace TypeCheckUtil;
 
 void TypeChecker::TypeCheckerImpl::EnsureImplicitDeclarations(ASTContext& ctx, ImplicitWithExpr& iwe) {
     if (iwe.synthesizedDecls.empty()) {
-        std::vector<OwnedPtr<VarDecl>> decls;
+        std::vector<OwnedPtr<Decl>> decls;
         for (size_t i = 0; i < iwe.children.size(); i++) {
             auto& child = iwe.children[i];
             auto ty = Synthesize(ctx, child);
