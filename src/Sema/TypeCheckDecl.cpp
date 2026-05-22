@@ -160,6 +160,9 @@ void TypeChecker::TypeCheckerImpl::CheckEntryFunc(FuncDecl& fd)
     if (invalidParamTy || fd.funcBody->paramLists[0]->params.size() > 1) {
         (void)diag.Diagnose(fd, DiagKind::sema_unexpected_param_for_entry);
     }
+    if (fd.funcBody->implicitParamList.has_value()) {
+        (void)diag.DiagnoseRefactor(DiagKindRefactor::sema_main_cannot_have_implicits, fd.begin);
+    }
     (void)mainFunctionMap[fd.curFile].emplace(&fd);
 }
 
