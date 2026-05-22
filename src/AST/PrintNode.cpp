@@ -943,6 +943,13 @@ void PrintCallExpr(unsigned indent, const CallExpr& expr, std::ostream& stream =
         }
         PrintIndent(stream, indent + ONE_INDENT, "]");
     }
+    if (!expr.implicitlyAssignedArgs.empty()) {
+        PrintIndent(stream, indent + ONE_INDENT, "implicit arguments [");
+        for (auto& it : expr.implicitlyAssignedArgs) {
+            PrintNode(it.get(), indent + TWO_INDENT, "", stream);
+        }
+        PrintIndent(stream, indent + ONE_INDENT, "]");
+    }
     if (expr.resolvedFunction) {
         PrintTarget(indent + ONE_INDENT, *expr.resolvedFunction, stream, "resolvedFunction");
     }

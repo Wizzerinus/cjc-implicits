@@ -746,6 +746,11 @@ OwnedPtr<CallExpr> ASTCloner::CloneCallExpr(const CallExpr& ce, const VisitFunc&
             expr->desugarArgs.value().push_back(cloneTable[it]);
         }
     }
+    expr->implicitlyAssignedArgs = std::vector<OwnedPtr<FuncArg>>();
+    for (auto& it : ce.implicitlyAssignedArgs) {
+        expr->implicitlyAssignedArgs.push_back(CloneNode(it.get(), visitor));
+    }
+
     expr->rightParenPos = ce.rightParenPos;
     expr->resolvedFunction = ce.resolvedFunction;
     expr->callKind = ce.callKind;

@@ -1157,7 +1157,8 @@ template <class NodeT> VisitAction WalkerT<NodeT>::Walk(Ptr<NodeT> curNode) cons
                         return VisitAction::STOP_NOW;
                     }
                 }
-                if (Walk(iwe->body.get()) == VisitAction::STOP_NOW) {
+                // We should not walk into body if it is desugared, relevant for Save CJO
+                if (!iwe->desugarExpr && Walk(iwe->body.get()) == VisitAction::STOP_NOW) {
                     return VisitAction::STOP_NOW;
                 }
                 action = VisitAction::WALK_CHILDREN;

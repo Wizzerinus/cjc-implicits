@@ -40,22 +40,21 @@ void TypeChecker::TypeCheckerImpl::EnsureImplicitDeclarations(ASTContext& ctx, I
 
 bool TypeChecker::TypeCheckerImpl::ChkImplicitWithExpr(ASTContext& ctx, Ty& target, ImplicitWithExpr& iwe)
 {
-    auto ty = SynImplicitWithExpr(ctx, iwe);
-    if (!typeManager.IsSubtype(ty, &target)) {
-        DiagMismatchedTypes(diag, iwe, target);
-    }
-    return Ty::IsTyCorrect(ty);
+    scopeManager.InitializeScope(ctx);
+    EnsureImplicitDeclarations(ctx, iwe);
+    auto result = Check(ctx, &target, iwe.body.get());
+    scopeManager.ExitImplicitScope(ctx);
+    scopeManager.FinalizeScope(ctx);
+    return result;
 }
 
 Ptr<Ty> TypeChecker::TypeCheckerImpl::SynImplicitWithExpr(ASTContext& ctx, ImplicitWithExpr& iwe)
 {
-    if (Ty::IsInitialTy(iwe.ty)) {
-        scopeManager.InitializeScope(ctx);
-        EnsureImplicitDeclarations(ctx, iwe);
-        iwe.ty = Synthesize(ctx, iwe.body.get());
-        iwe.body->ty = iwe.ty;
-        scopeManager.ExitImplicitScope(ctx);
-        scopeManager.FinalizeScope(ctx);
-    }
+    scopeManager.InitializeScope(ctx);
+    EnsureImplicitDeclarations(ctx, iwe);
+    iwe.ty = Synthesize(ctx, iwe.body.get());
+    iwe.body->ty = iwe.ty;
+    scopeManager.ExitImplicitScope(ctx);
+    scopeManager.FinalizeScope(ctx);
     return iwe.ty;
 }
