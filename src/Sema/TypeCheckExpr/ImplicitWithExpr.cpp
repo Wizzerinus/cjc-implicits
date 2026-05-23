@@ -20,6 +20,7 @@ void TypeChecker::TypeCheckerImpl::EnsureImplicitDeclarations(ASTContext& ctx, I
         for (size_t i = 0; i < iwe.children.size(); i++) {
             auto& child = iwe.children[i];
             auto ty = Synthesize(ctx, child);
+            typeManager.ReplaceIdealTy(&ty);
             child->ty = ty;
             auto withType = MakeOwned<Type>();
             withType->ty = ty;
