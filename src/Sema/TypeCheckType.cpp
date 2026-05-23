@@ -262,6 +262,10 @@ void TypeChecker::TypeCheckerImpl::CheckCFuncType(ASTContext& ctx, const RefType
     if (!arg) {
         return;
     }
+    if (arg->usingType.has_value() && arg->usingType.value()->paramTypes.size() > 0) {
+        diag.DiagnoseRefactor(DiagKindRefactor::sema_implicits_cfunc, *arg);
+        return;
+    }
     for (auto& it : arg->paramTypes) {
         CheckCFuncParamType(*it);
     }
