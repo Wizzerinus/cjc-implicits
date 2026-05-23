@@ -1093,6 +1093,12 @@ std::string BaseMangler::MangleFuncType(const AST::Ty& ty, std::vector<std::stri
     for (auto it : funcTy.paramTys) {
         params += MangleType(*it, genericsTypeStack, declare, isCollectGTy);
     }
+    if (funcTy.implicitParamTys.size() > 0) {
+        params += MANGLE_IMPLICIT_PREFIX;
+        for (auto it : funcTy.implicitParamTys) {
+            params += MangleType(*it, genericsTypeStack, declare, isCollectGTy);
+        }
+    }
     mangled += retTy + params + MANGLE_SUFFIX;
     return mangled;
 }
@@ -1138,6 +1144,16 @@ std::string BaseMangler::MangleFuncParams(const AST::FuncDecl& funcDecl, std::ve
             continue;
         }
         mangled += MangleType(*param->ty, genericsTypeStack, declare, isCollectGTy);
+    }
+    if (funcDecl.funcBody->implicitParamList.has_value()) {
+        mangled += MANGLE_IMPLICIT_PREFIX;
+        for (auto& param : funcDecl.funcBody->implicitParamList.value()->params) {
+            CJC_NULLPTR_CHECK(param->ty);
+            if (Ty::IsInitialTy(param->ty)) {
+                continue;
+            }
+            mangled += MangleType(*param->ty, genericsTypeStack, declare, isCollectGTy);
+        }
     }
     return mangled;
 }

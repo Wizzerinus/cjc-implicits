@@ -61,6 +61,7 @@ inline const std::string MANGLE_DOT_PREFIX = ".";
 inline const std::string MANGLE_LT_PREFIX = "<";
 inline const std::string MANGLE_GT_PREFIX = ">";
 inline const std::string MANGLE_LT_COLON_PREFIX = "<:";
+inline const std::string MANGLE_IMPLICIT_PREFIX = "$_";
 
 inline const size_t MANGLE_PREFIX_LEN = 2;
 inline const size_t MANGLE_CHAR_LEN = 1;
