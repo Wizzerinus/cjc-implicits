@@ -142,7 +142,7 @@ bool TypeChecker::TypeCheckerImpl::CheckBodyRetType(ASTContext& ctx, FuncBody& f
             // Errors should be already reported during the synthesis.
             isWellTyped = Ty::IsTyCorrect(SynthesizeWithUsing(ctx, fb));
         } else if (NeedCheckBodyReturn(fb)) {
-            isWellTyped = Check(ctx, fb.retType->ty, fb.body.get());
+            isWellTyped = CheckWithUsing(ctx, fb.retType->ty, fb);
             if (!isWellTyped && fb.body->body.empty()) {
                 DiagMismatchedTypes(diag, *fb.body, *fb.retType, "return type");
             }
@@ -489,26 +489,40 @@ void TypeChecker::TypeCheckerImpl::CheckCtorFuncBody(ASTContext& ctx, FuncBody& 
     SynthesizeWithUsing(ctx, fb);
 }
 
-Ptr<AST::Ty> TypeChecker::TypeCheckerImpl::SynthesizeWithUsing(ASTContext& ctx, FuncBody& fb) {
-    bool shouldCloseScope = false;
-    if (fb.implicitParamList.has_value()) {
-        Ptr<FuncParamList> fpl = fb.implicitParamList.value().get();
-        if (fpl->params.size() > 0) {
-            shouldCloseScope = true;
-            std::vector<ImplicitValue> impTys;
-            CheckFuncParamList(ctx, *fpl);
-            auto tupleTy = DynamicCast<AST::TupleTy>(fpl->ty);
-            CJC_NULLPTR_CHECK(tupleTy);
-            CJC_ASSERT(fpl->params.size() == tupleTy->typeArgs.size());
-            for (size_t i = 0; i < fpl->params.size(); i++) {
-                auto& ty = tupleTy->typeArgs[i];
-                auto& decl = fpl->params[i];
-                impTys.push_back(ImplicitValue{ty, decl});
-            }
-            scopeManager.EnterImplicitScope(ctx, ImplicitScope{std::move(impTys)});
-        }
+bool TypeChecker::TypeCheckerImpl::EnterImplicitScopeForFuncBody(ASTContext& ctx, FuncBody& fb) {
+    if (!fb.implicitParamList.has_value()) {
+        return false;
     }
+    Ptr<FuncParamList> fpl = fb.implicitParamList.value().get();
+    if (fpl->params.empty()) {
+        return false;
+    }
+    std::vector<ImplicitValue> impTys;
+    CheckFuncParamList(ctx, *fpl);
+    auto tupleTy = DynamicCast<AST::TupleTy>(fpl->ty);
+    CJC_NULLPTR_CHECK(tupleTy);
+    CJC_ASSERT(fpl->params.size() == tupleTy->typeArgs.size());
+    for (size_t i = 0; i < fpl->params.size(); i++) {
+        auto& ty = tupleTy->typeArgs[i];
+        auto& decl = fpl->params[i];
+        impTys.push_back(ImplicitValue{ty, decl});
+    }
+    scopeManager.EnterImplicitScope(ctx, ImplicitScope{std::move(impTys)});
+    return true;
+}
+
+Ptr<AST::Ty> TypeChecker::TypeCheckerImpl::SynthesizeWithUsing(ASTContext& ctx, FuncBody& fb) {
+    bool shouldCloseScope = EnterImplicitScopeForFuncBody(ctx, fb);
     Ptr<AST::Ty> out = Synthesize(ctx, fb.body.get());
+    if (shouldCloseScope) {
+        scopeManager.ExitImplicitScope(ctx);
+    }
+    return out;
+}
+
+bool TypeChecker::TypeCheckerImpl::CheckWithUsing(ASTContext& ctx, Ptr<Ty> ty, FuncBody& fb) {
+    bool shouldCloseScope = EnterImplicitScopeForFuncBody(ctx, fb);
+    bool out = Check(ctx, ty, fb.body.get());
     if (shouldCloseScope) {
         scopeManager.ExitImplicitScope(ctx);
     }

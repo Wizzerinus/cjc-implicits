@@ -2835,15 +2835,11 @@ bool TypeChecker::TypeCheckerImpl::ValidateImplicitContext(
         diag.DiagnoseRefactor(DiagKindRefactor::sema_unexpected_nonfunc_ty, beginPos, ty->String());
         return false;
     }
+    ce.implicitlyAssignedArgs.clear();
     bool ok = true;
     for (auto& implicitType : funcTy->implicitParamTys) {
         if (implicitType == nullptr || implicitType->IsInvalid()) {
             diag.DiagnoseRefactor(DiagKindRefactor::sema_invalid_implicit_ty, beginPos, implicitType == nullptr ? "null" : implicitType->String());
-            ok = false;
-            continue;
-        }
-        if (implicitType->HasGeneric()) {
-            diag.DiagnoseRefactor(DiagKindRefactor::sema_implicit_type_generic, beginPos, implicitType == nullptr ? "null" : implicitType->String());
             ok = false;
             continue;
         }
