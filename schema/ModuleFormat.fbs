@@ -72,6 +72,7 @@ table FuncBody {
   body:uint32; // index of body expr
   always:bool;
   captureKind:uint8;
+  implicitParamList:FuncParamList;
 }
 
 struct DeclHash {

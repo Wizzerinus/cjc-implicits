@@ -38,7 +38,7 @@ public:
     /**
      * Update types and calls to replace implicits with explicits.
      */
-    void PerformDesugarAfterCjo(ASTContext& ctx, AST::Package& pkg) const;
+    void PerformDesugarAfterCjo(AST::Package& pkg) const;
 
     // Desugar after sema.
     void PerformDesugarAfterSema(std::vector<Ptr<AST::Package>>& pkgs) const;

@@ -107,12 +107,18 @@ template <typename DeclT> void SetDeclBody(DeclT& decl)
 
 void SetOuterDeclForParamDecl(FuncDecl& func, Decl& parentDecl)
 {
-    if (func.funcBody->paramLists.empty()) {
-        return;
+    if (!func.funcBody->paramLists.empty()) {
+        for (auto& param : func.funcBody->paramLists[0]->params) {
+            if (param->desugarDecl) {
+                param->desugarDecl->outerDecl = &parentDecl;
+            }
+        }
     }
-    for (auto& param : func.funcBody->paramLists[0]->params) {
-        if (param->desugarDecl) {
-            param->desugarDecl->outerDecl = &parentDecl;
+    if (func.funcBody->implicitParamList.has_value()) {
+        for (auto& param : func.funcBody->implicitParamList.value()->params) {
+            if (param->desugarDecl) {
+                param->desugarDecl->outerDecl = &parentDecl;
+            }
         }
     }
 }
@@ -815,21 +821,35 @@ void ASTLoader::ASTLoaderImpl::LoadFuncDeclAdvancedInfo(const PackageFormat::Dec
         funcDecl.EnableAttr(Attribute::SRC_IMPORTED);
     }
     SetOuterFunctionDecl(funcDecl);
-    if (funcDecl.funcBody->paramLists.empty()) { // For LSP usage, this may be empty.
-        return;
-    }
     // Update param functions' references.
-    for (auto& param : funcDecl.funcBody->paramLists[0]->params) {
-        if (!param->desugarDecl) {
-            continue;
+    if (!funcDecl.funcBody->paramLists.empty()) { // For LSP usage, this may be empty.
+        for (auto& param : funcDecl.funcBody->paramLists[0]->params) {
+            if (!param->desugarDecl) {
+                continue;
+            }
+            param->desugarDecl->ownerFunc = &funcDecl;
+            param->desugarDecl->isFrozen = funcDecl.isFrozen;
+            // If owner function is non-generic global/member function, collecting source imported param function.
+            bool needCollect = importSrcCode && !funcDecl.TestAttr(Attribute::GENERIC) && IsGlobalOrMember(funcDecl) &&
+                param->desugarDecl->funcBody->body;
+            if (needCollect) {
+                (void)importNonGenericSrcFuncDecls.emplace_back(param->desugarDecl.get());
+            }
         }
-        param->desugarDecl->ownerFunc = &funcDecl;
-        param->desugarDecl->isFrozen = funcDecl.isFrozen;
-        // If owner function is non-generic global/member function, collecting source imported param function.
-        bool needCollect = importSrcCode && !funcDecl.TestAttr(Attribute::GENERIC) && IsGlobalOrMember(funcDecl) &&
-            param->desugarDecl->funcBody->body;
-        if (needCollect) {
-            (void)importNonGenericSrcFuncDecls.emplace_back(param->desugarDecl.get());
+    }
+    if (funcDecl.funcBody->implicitParamList.has_value()) {
+        for (auto& param : funcDecl.funcBody->implicitParamList.value()->params) {
+            if (!param->desugarDecl) {
+                continue;
+            }
+            param->desugarDecl->ownerFunc = &funcDecl;
+            param->desugarDecl->isFrozen = funcDecl.isFrozen;
+            // If owner function is non-generic global/member function, collecting source imported param function.
+            bool needCollect = importSrcCode && !funcDecl.TestAttr(Attribute::GENERIC) && IsGlobalOrMember(funcDecl) &&
+                param->desugarDecl->funcBody->body;
+            if (needCollect) {
+                (void)importNonGenericSrcFuncDecls.emplace_back(param->desugarDecl.get());
+            }
         }
     }
 }

@@ -581,10 +581,9 @@ bool CompilerInstance::PerformDesugarAfterSema()
 
 bool CompilerInstance::PerformDesugarAfterCjo()
 {
-    for (auto& srcPkg : srcPkgs) {
-        auto astCtx = GetASTContextByPackage(srcPkg.get());
-        CJC_ASSERT(astCtx);
-        typeChecker->PerformDesugarAfterCjo(*astCtx, *srcPkg);
+    // We need to also walk imported packages, because this step changes types of declarations in those.
+    for (auto& pkg : importManager.GetAllImportedPackages()) {
+        typeChecker->PerformDesugarAfterCjo(*pkg->srcPackage);
     }
 
     if (!srcPkgs.empty() && invocation.globalOptions.NeedDumpASTToFile()) {

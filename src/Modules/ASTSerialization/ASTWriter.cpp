@@ -234,6 +234,15 @@ void CollectFullExportParamDecl(
             CollectBodyToQueue(*param->desugarDecl, queue);
         }
     }
+    if (fd.funcBody->implicitParamList.has_value()) {
+        for (auto& param : fd.funcBody->implicitParamList.value()->params) {
+            // If parent function is full exported, default param decl must also exported.
+            if (param->desugarDecl && (param->desugarDecl->isInline || fullExport)) {
+                decls.emplace_back(param->desugarDecl.get());
+                CollectBodyToQueue(*param->desugarDecl, queue);
+            }
+        }
+    }
 }
 
 void CollectInstantiatedTys(Ty* ty, std::unordered_set<Ty*>& tys)
@@ -1293,7 +1302,8 @@ TFuncBodyOffset ASTWriter::ASTWriterImpl::SaveFuncBody(const FuncBody& funcBody)
     auto bodyIdx = validBody ? SaveExpr(*funcBody.body) : INVALID_FORMAT_INDEX;
     // CaptureKind is need if the 'funcBody' is exported.
     uint8_t kind = validBody ? static_cast<uint8_t>(funcBody.captureKind) : 0;
-    return PackageFormat::CreateFuncBody(builder, vparamLists, retType, bodyIdx, false, kind);
+    auto implicitParamList = funcBody.implicitParamList.has_value() ? SaveFuncParamList(*funcBody.implicitParamList.value()) : 0;
+    return PackageFormat::CreateFuncBody(builder, vparamLists, retType, bodyIdx, false, kind, implicitParamList);
 }
 
 TDeclOffset ASTWriter::ASTWriterImpl::SaveFuncDecl(const FuncDecl& funcDecl, const DeclInfo& declInfo)

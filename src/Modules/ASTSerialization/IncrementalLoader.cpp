@@ -64,6 +64,14 @@ void ASTLoader::ASTLoaderImpl::LoadCachedTypeForDecl(const PackageFormat::Decl& 
             auto index = paramList->params()->Get(offset);
             (void)allLoadedDecls.emplace(index, fd->funcBody->paramLists[0]->params[offset].get());
         }
+        auto implicitParamList = info->funcBody()->implicitParamList();
+        if (implicitParamList != nullptr) {
+            length = static_cast<uoffset_t>(implicitParamList->params()->size());
+            for (uoffset_t offset = 0; offset < length; ++offset) {
+                auto index = paramList->params()->Get(offset);
+                (void)allLoadedDecls.emplace(index, fd->funcBody->implicitParamList.value()->params[offset].get());
+            }
+        }
     }
     // Load target for unchanged annotation decl.
     if (!astDecl.toBeCompiled && GetAttributes(decl).TestAttr(Attribute::IS_ANNOTATION)) {
@@ -159,6 +167,19 @@ void ASTLoader::ASTLoaderImpl::CollectRemovedDecls(
             auto desugars = fpl->desugars();
             CJC_NULLPTR_CHECK(desugars);
             for (auto desugarIndex : *fpl->desugars()) {
+                if (desugarIndex == INVALID_FORMAT_INDEX) {
+                    continue;
+                }
+                auto member = GetFormatDeclByIndex(desugarIndex);
+                CJC_NULLPTR_CHECK(member);
+                CollectRemovedDecl(member->mangledName()->str(), needRemoved);
+            }
+        }
+        auto ipl = info->funcBody()->implicitParamList();
+        if (ipl != nullptr) {
+            auto desugars = ipl->desugars();
+            CJC_NULLPTR_CHECK(desugars);
+            for (auto desugarIndex : *ipl->desugars()) {
                 if (desugarIndex == INVALID_FORMAT_INDEX) {
                     continue;
                 }

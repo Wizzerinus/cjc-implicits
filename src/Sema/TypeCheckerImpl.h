@@ -123,7 +123,7 @@ public:
     /**
      * Update types and calls to replace implicits with explicits.
      */
-    void PerformDesugarAfterCjo(ASTContext& ctx, AST::Package& pkg);
+    void PerformDesugarAfterCjo(AST::Package& pkg);
 
     // Parse package config file and storage to corresponding pkg.
     void ParsePackageConfigFile(Ptr<AST::Package>& pkg, InteropCJPackageConfigReader packagesFullConfig);

@@ -27,12 +27,12 @@ using namespace TypeCheckUtil;
 using namespace Meta;
 
 // Perform desugar after cjo exporting.
-void TypeChecker::PerformDesugarAfterCjo(ASTContext& ctx, Package& pkg) const
+void TypeChecker::PerformDesugarAfterCjo(Package& pkg) const
 {
-    impl->PerformDesugarAfterCjo(ctx, pkg);
+    impl->PerformDesugarAfterCjo(pkg);
 }
 
-void TypeChecker::TypeCheckerImpl::PerformDesugarAfterCjo([[maybe_unused]] ASTContext& ctx, Package& pkg)
+void TypeChecker::TypeCheckerImpl::PerformDesugarAfterCjo(Package& pkg)
 {
     if (pkg.files.empty()) {
         return;

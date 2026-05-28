@@ -51,12 +51,18 @@ void SetMemberDeclReference(Decl& member, Decl& parentDecl)
         }
     } else if (auto func = DynamicCast<FuncDecl*>(&member)) {
         SetFuncParentReference(*func, *parentTypeDecl);
-        if (func->funcBody->paramLists.empty()) {
-            return;
+        if (!func->funcBody->paramLists.empty()) {
+            for (auto& param : func->funcBody->paramLists[0]->params) {
+                if (param->desugarDecl) {
+                    SetFuncParentReference(*param->desugarDecl, *parentTypeDecl);
+                }
+            }
         }
-        for (auto& param : func->funcBody->paramLists[0]->params) {
-            if (param->desugarDecl) {
-                SetFuncParentReference(*param->desugarDecl, *parentTypeDecl);
+        if (func->funcBody->implicitParamList.has_value()) {
+            for (auto& param : func->funcBody->implicitParamList.value()->params) {
+                if (param->desugarDecl) {
+                    SetFuncParentReference(*param->desugarDecl, *parentTypeDecl);
+                }
             }
         }
     }
@@ -126,6 +132,14 @@ OwnedPtr<Type> WrapType(Ptr<Ty> ty)
         for (auto param : funcTy->paramTys) {
             funcType->paramTypes.emplace_back(WrapType(param));
             hasTypeAlias = hasTypeAlias || !Ty::IsInitialTy(funcType->paramTypes.back()->aliasTy);
+        }
+        if (funcTy->implicitParamTys.size() > 0) {
+            auto usingType = MakeOwned<FuncTypeUsing>();
+            for (auto param : funcTy->implicitParamTys) {
+                usingType->paramTypes.emplace_back(WrapType(param));
+                hasTypeAlias = hasTypeAlias || !Ty::IsInitialTy(usingType->paramTypes.back()->aliasTy);
+            }
+            funcType->usingType = std::move(usingType);
         }
         funcType->ty = ty;
         funcType->retType = WrapType(funcTy->retTy);
