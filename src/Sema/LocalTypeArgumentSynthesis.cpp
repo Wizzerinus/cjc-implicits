@@ -461,7 +461,7 @@ bool LocalTypeArgumentSynthesis::UnifyFuncTy(const Tracked<FuncTy>& argTTy, cons
 {
     auto& argTy = argTTy.ty;
     auto& paramTy = paramTTy.ty;
-    if (argTy.paramTys.size() != paramTy.paramTys.size()) {
+    if (argTy.paramTys.size() != paramTy.paramTys.size() || argTy.implicitParamTys.size() != paramTy.implicitParamTys.size()) {
         return false;
     }
     for (size_t i = 0; i < paramTy.paramTys.size(); ++i) {
@@ -469,6 +469,16 @@ bool LocalTypeArgumentSynthesis::UnifyFuncTy(const Tracked<FuncTy>& argTTy, cons
             return false;
         }
         if (!UnifyAndTrim(cms, {*paramTy.paramTys[i], paramTTy.blames}, {*argTy.paramTys[i], argTTy.blames})) {
+            return false;
+        }
+    }
+    // When unifying implicit parameters, we need both subtyping relations to hold because there's no variancee
+    for (size_t i = 0; i < paramTy.implicitParamTys.size(); ++i) {
+        if (!paramTy.implicitParamTys[i] || !argTy.implicitParamTys[i]) {
+            return false;
+        }
+        if (!UnifyAndTrim(cms, {*paramTy.implicitParamTys[i], paramTTy.blames}, {*argTy.implicitParamTys[i], argTTy.blames}) ||
+            !UnifyAndTrim(cms, {*argTy.implicitParamTys[i], argTTy.blames}, {*paramTy.implicitParamTys[i], paramTTy.blames})) {
             return false;
         }
     }
