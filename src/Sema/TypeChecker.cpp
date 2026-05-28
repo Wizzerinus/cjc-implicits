@@ -2501,7 +2501,7 @@ void CollectGenericParam(const FuncDecl& funcDecl, Ptr<FuncDecl> desugared)
  * }
  */
 OwnedPtr<FuncDecl> MakeDefaultParamFunction(
-    FuncParam& fp, FuncDecl& funcDecl, const std::vector<Ptr<FuncParam>>& funcParams)
+    FuncParam& fp, FuncDecl& funcDecl, const std::vector<Ptr<FuncParam>>& funcParams, const std::vector<Ptr<FuncParam>>& implicitFuncParams)
 {
     fp.EnableAttr(Attribute::HAS_INITIAL);
     OwnedPtr<FuncDecl> ret = MakeOwnedNode<FuncDecl>();
@@ -2525,6 +2525,18 @@ OwnedPtr<FuncDecl> MakeDefaultParamFunction(
         params.emplace_back(CreateFuncParamForOptional(*param));
     }
     funcBody->paramLists[0]->params = std::move(params);
+    if (implicitFuncParams.size() > 0) {
+        std::vector<OwnedPtr<FuncParam>> implicitParams;
+        for (auto& param : implicitFuncParams) {
+            if (param == nullptr) {
+                continue; // Double Check.
+            }
+            implicitParams.emplace_back(CreateFuncParamForOptional(*param));
+        }
+        auto ipl = MakeOwnedNode<FuncParamList>();
+        ipl->params = std::move(implicitParams);
+        funcBody->implicitParamList = std::move(ipl);
+    }
     ret->funcBody = std::move(funcBody);
     // Set return expr.
     auto returnExpr = MakeOwnedNode<ReturnExpr>();
@@ -2569,7 +2581,7 @@ void TypeChecker::TypeCheckerImpl::GetSingleParamFunc(Decl& decl)
     if (notInherit) {
         return;
     }
-    std::vector<Ptr<FuncParam>> funcParams;
+    std::vector<Ptr<FuncParam>> funcParams, implicitFuncParams;
     bool isStatic = fd->TestAttr(Attribute::STATIC);
     auto walkFunc = [isStatic, this](Ptr<Node> node) -> VisitAction {
         CJC_ASSERT(node);
@@ -2589,6 +2601,14 @@ void TypeChecker::TypeCheckerImpl::GetSingleParamFunc(Decl& decl)
         }
         return VisitAction::WALK_CHILDREN;
     };
+    // We want to duplicate implicitFuncParams and add them to the functions generated here
+    // A function like f(x!: Int64 = 0) using (y: String) gets desugared into f(y: String, x!: Int64 = 0)
+    // When CHIR fills x argument, it will call x.1(y) because y is on the left, but this is not a valid call
+    if (fd->funcBody->implicitParamList.has_value()) {
+        for (auto& fp : fd->funcBody->implicitParamList.value()->params) {
+            implicitFuncParams.push_back(fp.get());
+        }
+    }
     for (auto& fp : fd->funcBody->paramLists[0]->params) {
         if (fp && fp->assignment && !fp->TestAttr(Attribute::HAS_INITIAL)) {
             if (fd->op != TokenKind::ILLEGAL || fd->TestAttr(Attribute::OPEN) || fd->TestAttr(Attribute::ABSTRACT) ||
@@ -2596,7 +2616,7 @@ void TypeChecker::TypeCheckerImpl::GetSingleParamFunc(Decl& decl)
                 DiagCannotHaveDefaultParam(diag, *fd, *fp);
                 return;
             }
-            fp->desugarDecl = MakeDefaultParamFunction(*fp, *fd, funcParams);
+            fp->desugarDecl = MakeDefaultParamFunction(*fp, *fd, funcParams, implicitFuncParams);
             // There may be nested functions inside default value function.
             Walker walker(fp->desugarDecl.get(), walkFunc);
             walker.Walk();
