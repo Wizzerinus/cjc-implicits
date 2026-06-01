@@ -774,7 +774,10 @@ private:
     bool ChkTryExpr(ASTContext& ctx, AST::Ty& tgtTy, AST::TryExpr& te);
     bool ChkTryExprCatchesAndHandles(ASTContext& ctx, AST::Ty& tgtTy, AST::TryExpr& te);
     bool ChkTryExprCatchPatterns(ASTContext& ctx, AST::TryExpr& te);
-    std::vector<Ptr<AST::Ty>> GenerateTryExprCaughtTypes(ASTContext& ctx, AST::TryExpr& te);
+    // We need to distinguish between empty and missing
+    // Empty vector = try/finally block, no catch expressions
+    // Missing value = patterns are typed incorrectly
+    std::optional<std::vector<Ptr<AST::Ty>>> GenerateTryExprCaughtTypes(ASTContext& ctx, AST::TryExpr& te);
     bool ChkTryExprHandlePatterns(ASTContext& ctx, AST::TryExpr& te);
     bool ChkHandler(ASTContext& ctx, AST::Handler& handler, AST::Ty& tgtTy);
     bool ValidateBlockInTryHandle(AST::Block& block);

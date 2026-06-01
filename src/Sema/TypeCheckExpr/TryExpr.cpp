@@ -40,9 +40,12 @@ bool TypeChecker::TypeCheckerImpl::SynthesizeTryCatch(const CheckerContext& ctx,
 
     std::vector<ImplicitValue> impTys;
     auto caughtTys = GenerateTryExprCaughtTypes(ctx.Ctx(), te);
+    if (!caughtTys.has_value()) {
+        return false;
+    }
     std::vector<OwnedPtr<Node>> tryBlockCode;
-    for (size_t i = 0; i < caughtTys.size(); i++) {
-        auto& caughtTy = caughtTys[i];
+    for (size_t i = 0; i < caughtTys.value().size(); i++) {
+        auto& caughtTy = caughtTys.value()[i];
         auto throwsTy = typeManager.GetStructTy(*throwsStruct, {caughtTy});
 
         auto mkThrowsExpr = CreateRefExpr(*decls[0]);
@@ -336,10 +339,10 @@ bool TypeChecker::TypeCheckerImpl::ChkTryExprFinallyBlock(ASTContext& ctx, const
 
 bool TypeChecker::TypeCheckerImpl::ChkTryExprCatchPatterns(ASTContext& ctx, TryExpr& te)
 {
-    return !GenerateTryExprCaughtTypes(ctx, te).empty();
+    return GenerateTryExprCaughtTypes(ctx, te).has_value();
 }
 
-std::vector<Ptr<Ty>> TypeChecker::TypeCheckerImpl::GenerateTryExprCaughtTypes(ASTContext& ctx, TryExpr& te)
+std::optional<std::vector<Ptr<Ty>>> TypeChecker::TypeCheckerImpl::GenerateTryExprCaughtTypes(ASTContext& ctx, TryExpr& te)
 {
     std::vector<Ptr<Ty>> included{};
     auto exception = importManager.GetCoreDecl<ClassDecl>(CLASS_EXCEPTION);
