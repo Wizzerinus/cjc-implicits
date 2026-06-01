@@ -15,8 +15,9 @@
 #include "Base/OverflowDispatcher.h"
 #include "Utils/CGUtils.h"
 #include "cangjie/CHIR/IR/Expression/Terminator.h"
-#include "cangjie/CHIR/Utils/ToStringUtils.h"
+#include "cangjie/CHIR/IR/IntrinsicKind.h"
 #include "cangjie/CHIR/IR/Value/Value.h"
+#include "cangjie/CHIR/Utils/ToStringUtils.h"
 
 namespace Cangjie {
 namespace CodeGen {
@@ -42,6 +43,8 @@ CGIntrinsicKind GetCGIntrinsicKind(CHIR::IntrinsicKind intrinsicKind)
             return CGIntrinsicKind::INTEROP;
         case CHIR::IntrinsicKind::EXCLUSIVE_SCOPE:
             return CGIntrinsicKind::EXCLUSIVE_SCOPE;
+        case CHIR::IntrinsicKind::GET_JSLAMBDA_ADDR:
+            return CGIntrinsicKind::GET_JSLAMBDA_ADDR;
         default:
             break;
     }
@@ -183,7 +186,7 @@ llvm::Value* GenerateArrayGetElemRef(IRBuilder2& irBuilder, const CHIRIntrinsicW
     if (!CGType::GetOrCreate(cgMod, arrTy)->GetSize()) {
         auto elemCGType = CGType::GetOrCreate(cgMod, arrTy->GetElementType());
         llvm::Value* offset = irBuilder.CreateMul(irBuilder.GetSize_64(elemCGType->GetOriginal()), indexVal);
-        offset = irBuilder.CreateAdd(offset, irBuilder.getInt64(irBuilder.GetPayloadOffset() + 8U)); // 8U:size of rawArray's len field
+        offset = irBuilder.CreateAdd(offset, irBuilder.getInt64(irBuilder.GetPayloadOffset() + 8U)); // 8U: size of rawArray's len field
         auto elePtr = irBuilder.CreateInBoundsGEP(irBuilder.getInt8Ty(), arrayVal, offset);
         irBuilder.GetCGContext().SetBasePtr(elePtr, arrayVal);
         return irBuilder.CreateBitCast(
@@ -614,7 +617,7 @@ llvm::Value* GenerateBuiltinCall(IRBuilder2& irBuilder, const CHIRIntrinsicWrapp
 #endif
         default:
 #ifndef NDEBUG
-            Errorln("unsupported intrinsic kind: ", CHIR::INTRINSIC_KIND_TO_STRING_MAP.at(kind));
+            Errorln("unsupported intrinsic kind: ", CHIR::IntrinsicKindToString(kind));
 #endif
             break;
     }
@@ -810,6 +813,7 @@ llvm::Value* GenerateIntrinsic(IRBuilder2& irBuilder, const CHIRIntrinsicWrapper
         {CGIntrinsicKind::MATH, &GenerateMathIntrinsics},
         {CGIntrinsicKind::PREINITIALIZE, &GeneratePreInitializeIntrinsics},
         {CGIntrinsicKind::INTEROP, &GenerateInteropIntrinsics},
+        {CGIntrinsicKind::GET_JSLAMBDA_ADDR, &GenerateInteropIntrinsics},
         {CGIntrinsicKind::EXCLUSIVE_SCOPE, &GenerateExclusiveScope},
 #endif
         {CGIntrinsicKind::RUNTIME, &GenerateRuntimeIntrinsics},

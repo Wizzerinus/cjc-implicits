@@ -4,10 +4,10 @@
 //
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
+#include "Base/CGTypes/CGVArrayType.h"
 #include "IRBuilder.h"
 
 #include "Base/CGTypes/CGArrayType.h"
-#include "Base/CGTypes/CGClassType.h"
 #include "Base/CGTypes/CGType.h"
 #include "Base/CHIRExprWrapper.h"
 #include "CGModule.h"
@@ -141,6 +141,13 @@ llvm::Value* IRBuilder2::CallStackTraceIntrinsic(const CHIRIntrinsicWrapper& sys
     return nullptr;
 }
 
+// In stdlib, there are two intrinsic functions used to get thread info:
+// 1) func dumpAllThreadsInfo(): RawArray<ThreadSnapshotInfo>
+// 2) func dumpCurrentThreadInfo(): ThreadSnapshotInfo
+// We need to translate them to runtime functions in cjnative:
+// 1) CJ_MCC_GetAllThreadSnapshot(TypeInfo* Array<ThreadSnapInfo>, TypeInfo* Array<StackTraceData>, TypeInfo*
+// RawArray<UInt8>) : RawArray<ThreadSnapshotInfo> 2) CJ_MCC_GetCurrentThreadSnapshot(TypeInfo* Array<StackTraceData>,
+// TypeInfo* RawArray<UInt8>) : ThreadSnapshotInfo
 llvm::Value* IRBuilder2::CallThreadInfoIntrinsic(const CHIRIntrinsicWrapper& syscall, std::vector<CGValue*>& parameters)
 {
     auto intrinsicKind = syscall.GetIntrinsicKind();
@@ -265,7 +272,7 @@ void IRBuilder2::CallArrayIntrinsicSet(
             auto structType = llvm::cast<llvm::StructType>(elemType);
             auto layOut = GetLLVMModule()->getDataLayout().getStructLayout(structType);
             auto size = getInt64(layOut->getSizeInBytes());
-            CallGCWriteAgg({array, elePtr, value, size});
+            CallGCWriteAgg(structType, {array, elePtr, value, size});
         } else {
             auto layOut =
                 GetCGModule().GetLLVMModule()->getDataLayout().getStructLayout(llvm::cast<llvm::StructType>(elemType));
@@ -276,7 +283,7 @@ void IRBuilder2::CallArrayIntrinsicSet(
         }
     } else if (elemType->isArrayTy()) {
         auto size = getInt64(GetLLVMModule()->getDataLayout().getTypeAllocSize(elemType));
-        CallGCWriteAgg({array, elePtr, value, size});
+        CallGCWriteAgg(elemCGType->GetLayoutType(), {array, elePtr, value, size});
     } else if (elemType == CGType::GetRefType(GetLLVMContext())) {
         CallGCWrite({value, array, elePtr});
     } else {
@@ -375,14 +382,13 @@ void IRBuilder2::CreateRefStore(CGValue* cgValue, llvm::Value* basePtr, llvm::Va
         }
     }
     if (valueCGType->IsStructPtrType()) {
-        if (isDstAddrspace1 && IsTypeContainsRef(valueCGType->GetPointerElementType()->GetLLVMType())) {
-            auto structType = llvm::cast<llvm::StructType>(valueCGType->GetPointerElementType()->GetLLVMType());
+        auto structType = llvm::cast<llvm::StructType>(valueCGType->GetPointerElementType()->GetLLVMType());
+        if (isDstAddrspace1 && IsTypeContainsRef(structType)) {
             auto layOut = cgMod.GetLLVMModule()->getDataLayout().getStructLayout(structType);
             auto size = llvm::ConstantInt::get(llvm::Type::getInt64Ty(GetLLVMContext()), layOut->getSizeInBytes());
-            CallGCWriteAgg({base, place, value, size});
+            CallGCWriteAgg(structType, {base, place, value, size});
         } else {
-            auto layOut = GetCGModule().GetLLVMModule()->getDataLayout().getStructLayout(
-                llvm::cast<llvm::StructType>(valueCGType->GetPointerElementType()->GetLLVMType()));
+            auto layOut = GetCGModule().GetLLVMModule()->getDataLayout().getStructLayout(structType);
             CJC_NULLPTR_CHECK(layOut);
             auto size = layOut->getSizeInBytes();
             auto align = layOut->getAlignment();
@@ -391,7 +397,7 @@ void IRBuilder2::CreateRefStore(CGValue* cgValue, llvm::Value* basePtr, llvm::Va
     } else if (isDstAddrspace1 && valueCGType->IsVArrayPtrType()) {
         auto valueType = valueCGType->GetPointerElementType()->GetLLVMType();
         auto size = getInt64(cgMod.GetLLVMModule()->getDataLayout().getTypeAllocSize(valueType));
-        CallGCWriteAgg({base, place, value, size});
+        CallGCWriteAgg(valueCGType->GetPointerElementType()->GetLayoutType(), {base, place, value, size});
     } else if (isDstAddrspace1 && valueCGType->IsRefType()) {
         CallGCWrite({value, base, place});
     } else {
@@ -1074,12 +1080,12 @@ llvm::Value* IRBuilder2::VArrayInitedByLambda(
     // Get InitFunc.
     auto autoEnvCGType = autoEnv.GetCGType();
     auto autoEnvClsDef = StaticCast<const CHIR::ClassType*>(DeRef(autoEnvCGType->GetOriginal()))->GetClassDef();
-    auto abstractMethods = autoEnvClsDef->GetAbstractMethods();
-    CJC_ASSERT(abstractMethods.size() == 1);
-    auto abstractMethod = abstractMethods.back();
-    auto abstractMethodIdx = CHIR::GetMethodIdxInAutoEnvObject(abstractMethod.methodName);
+    auto methods = autoEnvClsDef->GetMethods();
+    CJC_ASSERT(methods.size() == 1);
+    auto abstractMethod = methods.back();
+    auto abstractMethodIdx = CHIR::GetMethodIdxInAutoEnvObject(abstractMethod->GetSrcCodeIdentifier());
     auto initFuncCGType = static_cast<CGFunctionType*>(
-        CGType::GetOrCreate(cgMod, abstractMethod.methodTy, CGType::TypeExtraInfo{0, true, false, true, {}}));
+        CGType::GetOrCreate(cgMod, abstractMethod->GetType(), CGType::TypeExtraInfo{0, true, false, true, {}}));
     auto autoEnvPayload = GetPayloadFromObject(*autoEnv);
     auto initFuncPtr =
         CreateConstGEP1_32(getInt8PtrTy(), autoEnvPayload, static_cast<unsigned>(abstractMethodIdx), "virtualFPtr");
@@ -1485,7 +1491,7 @@ llvm::Value* GetRealUUIDForAutoEnvClass(IRBuilder2& irBuilder, llvm::Value* obj)
     auto i81PtrTy = irBuilder.getInt8PtrTy(1U);
     const size_t realAutoEnvClassIdx = 2;
     auto [judgeBB, wrapperClassBB, endBB] = Vec2Tuple<3>(irBuilder.CreateAndInsertBasicBlocks({"judge", "wrapperClass", "end"}));
-    
+
     auto newObjPtr = irBuilder.CreateEntryAlloca(i81PtrTy, nullptr, "obj");
     irBuilder.CreateStore(obj, newObjPtr);
     irBuilder.CreateBr(judgeBB);
@@ -1509,12 +1515,12 @@ llvm::Value* GetRealUUIDForAutoEnvClass(IRBuilder2& irBuilder, llvm::Value* obj)
     auto ti = irBuilder.GetTypeInfoFromObject(newObj2);
     auto uuid = irBuilder.GetUUIDFromTypeInfo(ti);
     return uuid;
-} 
+}
 }
 
 llvm::Value* IRBuilder2::CallIntrinsicFuncRefEq(std::vector<CGValue*> parameters)
 {
-    CJC_ASSERT(parameters.size() == 2 && "Func refEq should have two parameters");
+    CJC_ASSERT(parameters.size() == 2 && "Function refEq should have two parameters");
     auto realUUID0 = GetRealUUIDForAutoEnvClass(*this, **parameters[0]);
     auto realUUID1 = GetRealUUIDForAutoEnvClass(*this, **parameters[1]);
     return CreateICmpEQ(realUUID0, realUUID1);

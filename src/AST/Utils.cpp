@@ -55,7 +55,7 @@ void AddCurFile(Node& root, Ptr<File> file)
                     node->curFile = curFile;
                 }
                 // For diag after macro expansion.
-                if (node->TestAttr(Attribute::MACRO_EXPANDED_NODE) && node->curMacroCall) {
+                if (node->curMacroCall) {
                     AddMacroAttr(*node);
                     return VisitAction::SKIP_CHILDREN;
                 }
@@ -70,7 +70,7 @@ void AddCurFile(Node& root, Ptr<File> file)
  */
 void AddMacroAttr(AST::Node& node)
 {
-    if (!node.TestAttr(Attribute::MACRO_EXPANDED_NODE) || !node.curMacroCall) {
+    if (!node.curMacroCall) {
         return;
     }
     auto macroCall = node.curMacroCall;
@@ -88,7 +88,6 @@ void AddMacroAttr(AST::Node& node)
         return;
     }
     Walker walker(&node, [macroCall, curFile](Ptr<Node> curNode) -> VisitAction {
-        curNode->EnableAttr(Attribute::MACRO_EXPANDED_NODE);
         curNode->curMacroCall = macroCall;
         curNode->curFile = curFile;
         return VisitAction::WALK_CHILDREN;
@@ -195,14 +194,14 @@ FloatTypeInfo GetFloatTypeInfoByKind(AST::TypeKind kind)
 
 void InitializeLitConstValue(LitConstExpr& lce)
 {
-    if (!Ty::IsTyCorrect(lce.ty)) {
+    if (!Ty::IsTyCorrect(lce.GetTy())) {
         return;
     }
     // LitConstExpr is always a const expression.
     lce.isConst = true;
     // We don't need to handle the exception throwing from string-to-number api here,
     // because it's already been done in Parser phase.
-    auto primitiveTy = GetPrimitiveUpperBoundTy(*lce.ty);
+    auto primitiveTy = GetPrimitiveUpperBoundTy(*lce.GetTy());
     if (primitiveTy == nullptr) {
         return;
     }
@@ -532,8 +531,8 @@ void ExtractArgumentsOfDeprecatedAnno(
 
 bool IsValidCFuncConstructorCall(const CallExpr& ce)
 {
-    // ce.ty is correct only when the whole CFunc constructor call is correct
-    if (Ty::IsTyCorrect(ce.ty) && ce.baseFunc && Is<RefExpr>(ce.baseFunc)) {
+    // ce.GetTy() is correct only when the whole CFunc constructor call is correct
+    if (Ty::IsTyCorrect(ce.GetTy()) && ce.baseFunc && Is<RefExpr>(ce.baseFunc)) {
         // if this is a builtin CFunc constructor call, do not check the arguments
         if (auto callee = DynamicCast<BuiltInDecl>(StaticCast<RefExpr>(ce.baseFunc.get())->ref.target);
             callee && callee->type == BuiltInType::CFUNC) {
@@ -717,7 +716,7 @@ void InsertPropConvertedByField(ClassDecl& decl, VarDecl& varDecl, Attribute att
     propDecl->identifier = varDecl.identifier;
     propDecl->colonPos = varDecl.colonPos;
     propDecl->type = std::move(varDecl.type);
-    propDecl->ty = varDecl.ty;
+    propDecl->SetTy(varDecl.GetTy());
     propDecl->CloneAttrs(varDecl);
     propDecl->EnableAttr(Attribute::DESUGARED_MIRROR_FIELD);
     propDecl->modifiers.insert(varDecl.modifiers.begin(), varDecl.modifiers.end());
@@ -809,7 +808,7 @@ bool IsCJMapping(const Node& node)
 
 bool IsObject(const Node& node)
 {
-    return node.ty->IsObject();
+    return node.GetTy()->IsObject();
 }
 
 bool IsFwdClass(const Node& node)

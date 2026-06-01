@@ -22,6 +22,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <unordered_map>
+#include <type_traits>
 #ifdef _WIN32
 #include <direct.h>
 #include <io.h>
@@ -80,13 +81,20 @@ std::string GetErrMessage(int error)
         return "";
     }
     return std::string(buf);
-#elif defined(__ohos__) || defined(__APPLE__)
-    if (strerror_r(error, buf, buffSize) != 0) {
-        return "";
-    }
-    return std::string(buf);
 #else
-    return std::string(strerror_r(error, buf, buffSize));
+    auto handleError = [&buf](auto res) -> std::string {
+        using T = decltype(res);
+
+        if constexpr (std::is_integral_v<T>) {
+            // POSIX
+            return res != 0 ? "" : std::string(buf);
+        } else {
+            // GNU
+            return res ? std::string(res) : "";
+        }
+    };
+    // Generic lambda defers semantic checks until instantiation.
+    return handleError(strerror_r(error, buf, buffSize));
 #endif
 }
 
@@ -96,16 +104,19 @@ std::string SetNowTimeEncodedString()
     (void)clock_gettime(CLOCK_REALTIME, &wallNow);
     size_t ns =
         static_cast<size_t>(wallNow.tv_sec) * MULTIPLE_OF_SECOND_TO_NANOSECOND + static_cast<size_t>(wallNow.tv_nsec);
-    char res[32] = {0}; // 32 is much greater than the length of the result
+    constexpr size_t buffSize = 32; // 32 is much greater than the length of the result
+    char res[buffSize] = {0};
     size_t index = 0;
     size_t numberOfcode = strlen(CODE);
-    while (ns > numberOfcode) {
+    while (ns > numberOfcode && index < buffSize - 1) {
         size_t i = ns % numberOfcode;
         ns = ns / numberOfcode;
         res[index] = CODE[i];
         index++;
     }
-    res[index] = CODE[ns];
+    if (index < buffSize - 1) {
+        res[index] = CODE[ns];
+    }
     std::string s = std::string(res);
     std::reverse(s.begin(), s.end());
     return s;
@@ -134,8 +145,8 @@ std::optional<std::string> MakeTempDir(const std::string& tempDir, bool fromEnvS
             }
         }
 #else
-        // The permission on the new directory is 775(drwxrwxr-x)
-        if (mkdir(const_cast<char*>(path.c_str()), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == 0) {
+        // The permission on the new directory is 755(drwxr-xr-x)
+        if (mkdir(const_cast<char*>(path.c_str()), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) == 0) {
             return path;
         }
 #endif
@@ -213,8 +224,8 @@ bool TempFileManager::Init(const GlobalOptions& options, bool isFrontend)
     }
     fileSuffixMap = {
         {TempFileKind::O_CJO, []() { return SERIALIZED_FILE_EXTENSION; }},
-        {TempFileKind::O_FULL_BCHIR, []() { return FULL_BCHIR_SERIALIZED_FILE_EXTENSION; }},
-        {TempFileKind::O_BCHIR, []() { return BCHIR_SERIALIZED_FILE_EXTENSION; }},
+        {TempFileKind::O_FULL_BCHIR, []() { return std::string(FULL_BCHIR_SERIALIZED_FILE_EXTENSION); }},
+        {TempFileKind::O_BCHIR, []() { return std::string(BCHIR_SERIALIZED_FILE_EXTENSION); }},
         {TempFileKind::T_BC, []() { return ".bc"; }},
         {TempFileKind::O_BC, []() { return ".bc"; }},
 #ifdef CANGJIE_CODEGEN_CJNATIVE_BACKEND
@@ -227,9 +238,9 @@ bool TempFileManager::Init(const GlobalOptions& options, bool isFrontend)
         {TempFileKind::O_OPT_BC, []() { return ".bc"; }},
         {TempFileKind::T_ASM, []() { return ".s"; }},
 #endif
-        {TempFileKind::O_CHIR, []() { return CHIR_SERIALIZATION_FILE_EXTENSION; }},
+        {TempFileKind::O_CHIR, []() { return std::string(CHIR_SERIALIZATION_FILE_EXTENSION); }},
         {TempFileKind::T_OBJ, []() { return ".o"; }},
-        {TempFileKind::T_EXE_MAC, []() { return  "_temp"; }},
+        {TempFileKind::T_EXE_MAC, []() { return "_temp"; }},
         {TempFileKind::T_DYLIB_MAC, []() { return "_temp.dylib"; }},
         {TempFileKind::O_CJO_FLAG, []() { return std::string(SERIALIZED_FILE_FLAG_EXTENSION); }},
     };
@@ -417,24 +428,22 @@ TempFileInfo TempFileManager::CreateLinuxLLVMOptOutputBcFileInfo(const TempFileI
 }
 #endif
 
-void TempFileManager::DeleteTempFiles(bool isSignalSafe)
+void TempFileManager::DeleteTempFiles()
 {
     if (isDeleted.exchange(DELETING) != NOT_DELETED && IsDeleted()) {
         return;
     }
+
+    for (size_t i = deletedFiles.size(); i > 0; --i) {
 #ifdef _WIN32
-    int i = static_cast<int>(deletedFiles.size()) - 1;
-    while (i >= 0) {
-        std::string filePath = deletedFiles[i];
+        std::string filePath = deletedFiles[i - 1];
         std::optional<std::wstring> tempValue = Cangjie::StringConvertor::StringToWString(filePath);
         if (!tempValue.has_value()) {
-            i--;
             continue;
         }
         std::wstring wFilePath = tempValue.value();
         DWORD dwAttr = GetFileAttributesW(wFilePath.c_str());
         if (dwAttr == INVALID_FILE_ATTRIBUTES) {
-            i--;
             continue;
         }
         if ((dwAttr & FILE_ATTRIBUTE_DIRECTORY) != 0) {
@@ -442,25 +451,31 @@ void TempFileManager::DeleteTempFiles(bool isSignalSafe)
         } else {
             DeleteFileW(wFilePath.c_str());
         }
-        i--;
-    }
 #else
-    for (auto it = deletedFiles.crbegin(); it != deletedFiles.crend(); ++it) {
-        const char* filePath = it->c_str();
-        struct stat buf;
-        if (stat(filePath, &buf) != 0) {
-            continue;
-        }
-        if (S_ISREG(buf.st_mode)) {
-            (void)unlink(filePath);
-        } else if (S_ISDIR(buf.st_mode)) {
-            (void)rmdir(filePath);
-            if (!isSignalSafe) {
-                RemoveDirRecursively(filePath);
-            }
-        }
-    }
+        const char* filePath = deletedFiles[i - 1].c_str();
+        (void)unlink(filePath);
+        (void)rmdir(filePath);
+        RemoveDirRecursively(filePath);
 #endif
+    }
+    isDeleted.store(DELETED);
+}
+
+void TempFileManager::DeleteTempFilesSignalSafe()
+{
+    if (isDeleted.exchange(DELETING) != NOT_DELETED && IsDeleted()) {
+        return;
+    }
+    for (size_t i = deletedFiles.size(); i > 0; --i) {
+        const char* filePath = deletedFiles[i - 1].c_str();
+#ifdef _WIN32
+        (void)DeleteFileA(filePath);
+        (void)RemoveDirectoryA(filePath);
+#else
+        (void)unlink(filePath);
+        (void)rmdir(filePath);
+#endif
+    }
     isDeleted.store(DELETED);
 }
 

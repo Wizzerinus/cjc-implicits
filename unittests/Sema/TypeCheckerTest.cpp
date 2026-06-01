@@ -13,7 +13,6 @@
 #include "cangjie/AST/PrintNode.h"
 #include "cangjie/AST/Walker.h"
 #include "cangjie/Basic/Match.h"
-#include "cangjie/Driver/Driver.h"
 
 using namespace Cangjie;
 using namespace AST;
@@ -38,7 +37,7 @@ protected:
 #endif
 #ifdef _WIN32
         instance->invocation.globalOptions.target.os = Cangjie::Triple::OSType::WINDOWS;
-#elif __unix__
+#elif defined(__unix__)
         instance->invocation.globalOptions.target.os = Cangjie::Triple::OSType::LINUX;
 #endif
         Cangjie::MacroProcMsger::GetInstance().CloseMacroSrv();
@@ -66,10 +65,10 @@ main() {
     Walker walker(instance->GetSourcePackages()[0]->files[0].get(), [](Ptr<Node> node) -> VisitAction {
         Meta::match (*node)(
             [](const FuncDecl& decl) {
-                auto ty = dynamic_cast<FuncTy*>(decl.ty.get());
+                auto ty = dynamic_cast<FuncTy*>(decl.GetTy().get());
                 EXPECT_EQ(ty->retTy->kind, TypeKind::TYPE_INT64);
             },
-            [](const VarDecl& decl) { EXPECT_EQ(decl.ty->kind, TypeKind::TYPE_INT32); });
+            [](const VarDecl& decl) { EXPECT_EQ(decl.TyKind(), TypeKind::TYPE_INT32); });
         return VisitAction::WALK_CHILDREN;
     });
     walker.Walk();
@@ -87,7 +86,7 @@ TEST_F(TypeCheckerTest, DISABLED_MacroDeclTest)
     instance->PerformImportPackage();
     instance->PerformSema();
     std::vector<uint8_t> astData;
-    instance->importManager.ExportAST(false, astData, *instance->GetSourcePackages()[0]);
+    instance->importManager->ExportAST(false, astData, *instance->GetSourcePackages()[0]);
 
     EXPECT_EQ(diag.GetErrorCount(), 3);
 }
@@ -205,15 +204,9 @@ TEST_F(TypeCheckerTest, DISABLED_NoDiagInLSPMacroCallTest)
 TEST_F(TypeCheckerTest, DISABLED_NoDiagInLSPMacroCallForTest)
 {
     srcPath = projectPath + "/unittests/Sema/SemaCangjieFiles/";
-    std::vector<std::string> argStrs = {"cjc", "--compile-macro", "-Woff", "all", srcPath + "ModifyClassBuildFunc.cj"};
-    DiagnosticEngine driverDiag;
-    std::unique_ptr<Driver> driver = std::make_unique<Driver>(argStrs, driverDiag, projectPath + "/output/bin/cjc");
-    driver->driverOptions->customizedSysroot = true;
-    bool succ = driver->ParseArgs();
-    EXPECT_TRUE(succ);
-
-    succ = driver->ExecuteCompilation();
-    EXPECT_TRUE(succ);
+    std::string command = "cjc " + srcPath + "ModifyClassBuildFunc.cj --compile-macro -Woff all";
+    int err = system(command.c_str());
+    ASSERT_EQ(0, err);
 
     instance->invocation.globalOptions.enableMacroInLSP = true;
     invocation.globalOptions.executablePath = projectPath + "/output/bin/";
@@ -257,7 +250,7 @@ TEST_F(TypeCheckerTest, DISABLED_MacroCallOfTopLevelInLSPTest)
             checkCount++;
             EXPECT_TRUE(fp->type != nullptr);
             if (fp->type != nullptr) {
-                EXPECT_EQ(fp->type->ty->String(), "Struct-String");
+                EXPECT_EQ(fp->type->GetTy()->String(), "Struct-String");
             }
         }
         return VisitAction::WALK_CHILDREN;
@@ -273,7 +266,7 @@ TEST_F(TypeCheckerTest, DISABLED_AssumptionTest)
 {
 #ifdef _WIN32
     srcPath = projectPath + "\\unittests\\Sema\\SemaCangjieFiles\\AssumptionTest";
-#elif __unix__
+#elif defined(__unix__)
     srcPath = projectPath + "/unittests/Sema/SemaCangjieFiles/AssumptionTest";
 #endif
 
@@ -321,7 +314,7 @@ TEST_F(TypeCheckerTest, DISABLED_SpawnTest)
 {
 #ifdef _WIN32
     srcPath = projectPath + "\\unittests\\Sema\\SemaCangjieFiles\\";
-#elif __unix__
+#elif defined(__unix__)
     srcPath = projectPath + "/unittests/Sema/SemaCangjieFiles/";
 #endif
     auto srcFile = srcPath + "spawn.cj";
@@ -353,10 +346,62 @@ TEST_F(TypeCheckerTest, DISABLED_SpawnTest)
     auto var2 = As<ASTKind::VAR_DECL>(targetFutureObj2);
     EXPECT_TRUE(var1);
     EXPECT_TRUE(var2);
-    auto ty1 = dynamic_cast<ClassTy*>(var1->ty.get());
-    auto ty2 = dynamic_cast<ClassTy*>(var2->ty.get());
+    auto ty1 = dynamic_cast<ClassTy*>(var1->GetTy().get());
+    auto ty2 = dynamic_cast<ClassTy*>(var2->GetTy().get());
     EXPECT_TRUE(ty1 && ty2 && ty1 == ty2);
     EXPECT_TRUE(ty1->decl->identifier == "Future");
     EXPECT_TRUE(ty1->typeArgs.size() == 1);
     EXPECT_TRUE(ty1->typeArgs[0]->kind == TypeKind::TYPE_INT64);
+}
+
+TEST_F(TypeCheckerTest, DiagnosticNodeTest)
+{
+    std::string code = R"(
+interface I {
+    func foo(): Unit
+}
+
+class C1 <: I {}
+struct S1 <: I {}
+
+main() {}
+    )";
+
+    instance->code = code;
+    instance->invocation.globalOptions.implicitPrelude = true;
+    instance->Compile(CompileStage::SEMA);
+
+    auto diags = diag.GetCategoryDiagnostic(DiagCategory::SEMA);
+    int foundDiag = 0;
+    for (auto& d : diags) {
+        if (d.rKind == DiagKindRefactor::sema_class_need_abstract_modifier_or_func_need_impl) {
+            foundDiag++;
+            EXPECT_TRUE(d.node != nullptr);
+            EXPECT_EQ(d.node->astKind, ASTKind::CLASS_DECL);
+            auto classDecl = StaticAs<ASTKind::CLASS_DECL>(d.node);
+            EXPECT_EQ(classDecl->identifier.Val(), "C1");
+            EXPECT_FALSE(d.subDiags.empty());
+            auto noteNode = d.subDiags[0].GetNodeSubDiagAt();
+            EXPECT_TRUE(noteNode != nullptr);
+            EXPECT_EQ(noteNode->astKind, ASTKind::FUNC_DECL);
+            auto funcDecl = StaticAs<ASTKind::FUNC_DECL>(noteNode);
+            EXPECT_EQ(funcDecl->identifier.Val(), "foo");
+            EXPECT_EQ(funcDecl->outerDecl->identifier.Val(), "I");
+        }
+        if (d.rKind == DiagKindRefactor::sema_need_member_implementation) {
+            foundDiag++;
+            EXPECT_TRUE(d.node != nullptr);
+            EXPECT_EQ(d.node->astKind, ASTKind::STRUCT_DECL);
+            auto structDecl = StaticAs<ASTKind::STRUCT_DECL>(d.node);
+            EXPECT_EQ(structDecl->identifier.Val(), "S1");
+            EXPECT_FALSE(d.subDiags.empty());
+            auto noteNode = d.subDiags[0].GetNodeSubDiagAt();
+            EXPECT_TRUE(noteNode != nullptr);
+            EXPECT_EQ(noteNode->astKind, ASTKind::FUNC_DECL);
+            auto funcDecl = StaticAs<ASTKind::FUNC_DECL>(noteNode);
+            EXPECT_EQ(funcDecl->identifier.Val(), "foo");
+            EXPECT_EQ(funcDecl->outerDecl->identifier.Val(), "I");
+        }
+    }
+    EXPECT_EQ(foundDiag, 2);
 }

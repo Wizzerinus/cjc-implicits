@@ -21,6 +21,7 @@
 #include "cangjie/AST/Create.h"
 #include "cangjie/AST/Match.h"
 #include "cangjie/AST/Utils.h"
+#include "cangjie/Utils/ProfileRecorder.h"
 
 namespace Cangjie {
 using namespace AST;
@@ -222,6 +223,7 @@ void DiagRecursiveConstructorCall(DiagnosticEngine& diag, const std::vector<Ptr<
 // desugar primary ctor before cjmp customDef merging
 void TypeChecker::TypeCheckerImpl::CheckPrimaryCtorBeforeMerge(Node &root)
 {
+    Utils::ProfileRecorder recorder("PrepareTypeCheck", "CheckPrimaryCtorBeforeMerge");
     // Create by cjogen is not need to add default construct.
     if (root.TestAttr(Attribute::TOOL_ADD)) {
         return;
@@ -503,18 +505,18 @@ void TypeChecker::TypeCheckerImpl::CheckValueTypeRecursiveDFSSwitch(Ptr<Decl> ro
     if (root->astKind != ASTKind::STRUCT_DECL && root->astKind != ASTKind::ENUM_DECL) {
         return;
     }
-    if (root->ty != nullptr && root->ty->IsEnum() && DynamicCast<RefEnumTy*>(root->ty)) {
+    if (root->GetTy() != nullptr && root->GetTy()->IsEnum() && DynamicCast<RefEnumTy*>(root->GetTy())) {
         return;
     }
     auto checkField = [this, &path](const Decl& decl) {
-        if (decl.ty->IsEnum() && DynamicCast<RefEnumTy*>(decl.ty)) {
+        if (decl.GetTy()->IsEnum() && DynamicCast<RefEnumTy*>(decl.GetTy())) {
             return;
         }
-        auto needCheckElemTy = Is<TupleTy*>(decl.ty) || Is<VArrayTy*>(decl.ty);
+        auto needCheckElemTy = Is<TupleTy*>(decl.GetTy()) || Is<VArrayTy*>(decl.GetTy());
         if (!needCheckElemTy) {
-            return CheckValueTypeRecursiveDFS(Ty::GetDeclOfTy(decl.ty), path);
+            return CheckValueTypeRecursiveDFS(Ty::GetDeclOfTy(decl.GetTy()), path);
         }
-        for (auto elementTy : decl.ty->typeArgs) {
+        for (auto elementTy : decl.GetTy()->typeArgs) {
             CheckValueTypeRecursiveDFS(Ty::GetDeclOfTy(elementTy), path);
         }
     };

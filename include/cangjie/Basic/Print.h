@@ -24,6 +24,15 @@
 #include "cangjie/Basic/Utils.h"
 #include "cangjie/Basic/Color.h"
 #include "cangjie/Utils/ICEUtil.h"
+#ifdef _WIN32
+#include "cangjie/Basic/StringConvertor.h"
+#endif
+
+#if defined(__GNUC__) || defined(__clang__)
+#define CJC_PRINTF_FORMAT(fmtIdx, firstVarargIdx) __attribute__((format(printf, fmtIdx, firstVarargIdx)))
+#else
+#define CJC_PRINTF_FORMAT(fmtIdx, firstVarargIdx)
+#endif
 
 namespace Cangjie {
 // No color means nothing, reset means reset state.
@@ -96,31 +105,9 @@ const std::string YELLOW_WARNING_MARK = ANSI_COLOR_YELLOW + "warning" + ANSI_COL
 const std::string GREEN_INFO_MARK = ANSI_COLOR_GREEN + "info" + ANSI_COLOR_RESET + ": ";
 const std::string GREEN_DEBUG_MARK = ANSI_COLOR_GREEN + "debug" + ANSI_COLOR_RESET + ": ";
 
-static const std::unordered_map<DiagColor, std::string> ColorPrintMap = {
-    {DiagColor::NO_COLOR, ANSI_NO_COLOR},
-    {DiagColor::RESET, ANSI_COLOR_RESET},
-    {DiagColor::BLACK, ANSI_COLOR_BLACK},
-    {DiagColor::RED, ANSI_COLOR_RED},
-    {DiagColor::GREEN, ANSI_COLOR_GREEN},
-    {DiagColor::YELLOW, ANSI_COLOR_YELLOW},
-    {DiagColor::BLUE, ANSI_COLOR_BLUE},
-    {DiagColor::MAGENTA, ANSI_COLOR_MAGENTA},
-    {DiagColor::CYAN, ANSI_COLOR_CYAN},
-    {DiagColor::WHITE, ANSI_COLOR_WHITE},
-    {DiagColor::REVERSE, ANSI_COLOR_WHITE_BACKGROUND_BLACK_FOREGROUND},
-};
+extern const std::unordered_map<DiagColor, std::string> ColorPrintMap;
 
-inline void ErrorWithColor(const DiagColor& color, const std::string& content, bool isBright = false)
-{
-    if (isBright) {
-        std::cerr << ANSI_COLOR_BRIGHT;
-    }
-    std::cerr << ColorPrintMap.at(color);
-    std::cerr << content;
-    if (color != DiagColor::NO_COLOR) {
-        std::cerr << ANSI_COLOR_RESET;
-    }
-}
+void ErrorWithColor(const DiagColor& color, const std::string& content, bool isBright = false);
 
 // no format Error print with new line
 template <typename... Args> inline void Errorln(Args&&... args) noexcept
@@ -145,8 +132,24 @@ template <typename... Args> inline void Error(Args&&... args)
     ((std::cerr << args), ...);
 }
 
+#ifdef _WIN32
+inline void WErrorf(const wchar_t* fmt, ...)
+{
+    std::optional<std::wstring> werrMark = Cangjie::StringConvertor::StringToWString(RED_ERROR_MARK);
+    if (!werrMark.has_value()) {
+        return;
+    }
+    std::wcerr << werrMark.value().c_str();
+    va_list myargs;
+    va_start(myargs, fmt);
+    (void)vfwprintf(stderr, fmt, myargs);
+    va_end(myargs);
+    std::wcerr << std::flush;
+}
+#endif
+
 // format Error print with new line
-inline void Errorf(const char* fmt, ...)
+CJC_PRINTF_FORMAT(1, 2) inline void Errorf(const char* fmt, ...)
 {
     std::cerr << RED_ERROR_MARK;
     va_list myargs;
@@ -169,7 +172,7 @@ template <typename... Args> inline void Warningln(Args&&... args)
     std::cerr << std::endl;
 }
 
-inline void Warningf(const char* fmt, ...)
+CJC_PRINTF_FORMAT(1, 2) inline void Warningf(const char* fmt, ...)
 {
     std::cerr << YELLOW_WARNING_MARK;
     va_list myargs;
@@ -191,7 +194,7 @@ template <typename... Args> inline void Infoln(Args&&... args)
     std::cout << std::endl;
 }
 
-inline void Infof(const char* fmt, ...)
+CJC_PRINTF_FORMAT(1, 2) inline void Infof(const char* fmt, ...)
 {
     PrintNoSplit(GREEN_INFO_MARK);
     va_list myargs;
@@ -200,7 +203,7 @@ inline void Infof(const char* fmt, ...)
     va_end(myargs);
 }
 
-inline void Printf(const char* fmt, ...)
+CJC_PRINTF_FORMAT(1, 2) inline void Printf(const char* fmt, ...)
 {
     va_list myargs;
     va_start(myargs, fmt);
@@ -224,7 +227,7 @@ template <typename... Args> inline void Debugln([[maybe_unused]] Args&&... args)
 #endif
 }
  
-inline void Debugf([[maybe_unused]] const char* fmt, ...)
+CJC_PRINTF_FORMAT(1, 2) inline void Debugf([[maybe_unused]] const char* fmt, ...)
 {
 #ifndef NDEBUG
     PrintNoSplit(GREEN_DEBUG_MARK);
