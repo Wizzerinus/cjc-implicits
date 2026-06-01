@@ -177,7 +177,7 @@ private:
      */
     Ptr<AST::Ty> Synthesize(const CheckerContext& ctx, Ptr<AST::Node> node);
     bool SynthesizeAndReplaceIdealTy(const CheckerContext& ctx, AST::Node& node);
-    bool SynthesizeTryCatch(CheckerContext& ctx, AST::TryExpr& te);
+    bool SynthesizeTryCatch(const CheckerContext& ctx, AST::TryExpr& te);
     /**
      * Main entry of the check mode of the type checking.
      */
@@ -1314,7 +1314,7 @@ private:
     void ReplaceFuncRetTyWithThis(AST::FuncBody& fb, Ptr<AST::Ty> ty);
     void CheckCtorFuncBody(ASTContext& ctx, AST::FuncBody& fb);
     bool EnterImplicitScopeForFuncBody(ASTContext& ctx, AST::FuncBody& fb);
-    Ptr<AST::Ty> SynthesizeWithUsing(CheckerContext& ctx, AST::FuncBody& fb);
+    Ptr<AST::Ty> SynthesizeWithUsing(const CheckerContext& ctx, AST::FuncBody& fb);
     bool CheckWithUsing(ASTContext& ctx, Ptr<AST::Ty> target, AST::FuncBody& fb);
     bool CheckReturnThisInFuncBody(const AST::FuncBody& fb) const;
     /**

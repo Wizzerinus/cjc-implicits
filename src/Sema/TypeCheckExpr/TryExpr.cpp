@@ -19,7 +19,7 @@ using namespace Cangjie;
 using namespace Sema;
 using namespace TypeCheckUtil;
 
-bool TypeChecker::TypeCheckerImpl::SynthesizeTryCatch(CheckerContext& ctx, TryExpr& te)
+bool TypeChecker::TypeCheckerImpl::SynthesizeTryCatch(const CheckerContext& ctx, TryExpr& te)
 {
     auto throwsStruct = importManager.GetCoreDecl<StructDecl>("Throws");
     if (throwsStruct == nullptr) {

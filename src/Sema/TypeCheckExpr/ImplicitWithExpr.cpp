@@ -19,8 +19,8 @@ void TypeChecker::TypeCheckerImpl::EnsureImplicitDeclarations(ASTContext& ctx, I
         std::vector<OwnedPtr<Decl>> decls;
         for (size_t i = 0; i < iwe.children.size(); i++) {
             auto& child = iwe.children[i];
-            auto ty = Synthesize(ctx, child);
-            typeManager.ReplaceIdealTy(&ty);
+            auto ty = Synthesize(CheckerContext{ctx, SynPos::EXPR_ARG}, child);
+            typeManager.ReplaceIdealTy(ty);
             child->SetTy(ty);
             auto withType = MakeOwned<Type>();
             withType->SetTy(ty);
@@ -53,7 +53,7 @@ Ptr<Ty> TypeChecker::TypeCheckerImpl::SynImplicitWithExpr(ASTContext& ctx, Impli
 {
     scopeManager.InitializeScope(ctx);
     EnsureImplicitDeclarations(ctx, iwe);
-    iwe.SetTy(Synthesize(ctx, iwe.body.get()));
+    iwe.SetTy(Synthesize(CheckerContext{ctx, SynPos::IMPLICIT_RETURN}, iwe.body.get()));
     iwe.body->SetTy(iwe.GetTy());
     scopeManager.ExitImplicitScope(ctx);
     scopeManager.FinalizeScope(ctx);

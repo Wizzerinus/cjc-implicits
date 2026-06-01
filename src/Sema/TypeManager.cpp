@@ -2376,12 +2376,15 @@ Ptr<Ty> TypeManager::ReplaceThisTy(Ptr<Ty> now)
     switch (now->kind) {
         case TypeKind::TYPE_FUNC: {
             auto& funcTy = static_cast<FuncTy&>(*now);
-            std::vector<Ptr<Ty>> paramTys;
+            std::vector<Ptr<Ty>> paramTys, implicitParamTys;
             for (auto& p : funcTy.paramTys) {
                 paramTys.push_back(ReplaceThisTy(p));
             }
+            for (auto& p : funcTy.implicitParamTys) {
+                implicitParamTys.push_back(ReplaceThisTy(p));
+            }
             auto retTy = ReplaceThisTy(funcTy.retTy);
-            return GetFunctionTy(paramTys, retTy, {funcTy.IsCFunc(), funcTy.isClosureTy, funcTy.hasVariableLenArg});
+            return GetFunctionTy(paramTys, implicitParamTys, retTy, {funcTy.IsCFunc(), funcTy.isClosureTy, funcTy.hasVariableLenArg});
         }
         case TypeKind::TYPE_TUPLE:
             return GetTupleTy(newArgs, static_cast<TupleTy&>(*now).isClosureTy);

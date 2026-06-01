@@ -618,20 +618,6 @@ Ptr<Ty> TypeChecker::TypeCheckerImpl::GetTyFromASTType(ASTContext& ctx, FuncType
             implicitParamTys.push_back(paramType->GetTy());
         }
     }
-    std::vector<Ptr<Ty>> implicitParamTys;
-    if (funcType.usingType.has_value()) {
-        auto& ut = funcType.usingType.value();
-        for (auto& paramType : ut->paramTypes) {
-            if (!paramType) {
-                return TypeManager::GetInvalidTy();
-            }
-            paramType->SetTy(GetTyFromASTType(ctx, paramType.get()));
-            if (Ty::IsInitialTy(paramType->GetTy())) {
-                return TypeManager::GetInvalidTy();
-            }
-            implicitParamTys.push_back(paramType->GetTy());
-        }
-    }
     if (!funcType.retType) {
         return TypeManager::GetInvalidTy();
     }

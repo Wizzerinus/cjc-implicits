@@ -676,7 +676,7 @@ bool CompilerInstance::PerformDesugarAfterSema()
 bool CompilerInstance::PerformDesugarAfterCjo()
 {
     // We need to also walk imported packages, because this step changes types of declarations in those.
-    for (auto& pkg : importManager.GetAllImportedPackages()) {
+    for (auto& pkg : importManager->GetAllImportedPackages()) {
         typeChecker->PerformDesugarAfterCjo(*pkg->srcPackage);
     }
 

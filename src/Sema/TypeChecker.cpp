@@ -476,7 +476,7 @@ void TypeChecker::TypeCheckerImpl::CheckCtorFuncBody(ASTContext& ctx, FuncBody& 
     fb.SetTy(typeManager.GetFunctionTy(paramTys, GetFuncBodyImplicitParamTys(fb), ctorTy));
     fb.funcDecl->SetTy(fb.GetTy());
     fb.retType->SetTy(ctorTy);
-    SynthesizeWithUsing({ctx, SynPos::UNUSED}, fb.body.get());
+    SynthesizeWithUsing({ctx, SynPos::UNUSED}, fb);
 }
 
 bool TypeChecker::TypeCheckerImpl::EnterImplicitScopeForFuncBody(ASTContext& ctx, FuncBody& fb) {
@@ -501,7 +501,7 @@ bool TypeChecker::TypeCheckerImpl::EnterImplicitScopeForFuncBody(ASTContext& ctx
     return true;
 }
 
-Ptr<AST::Ty> TypeChecker::TypeCheckerImpl::SynthesizeWithUsing(CheckerContext& ctx, FuncBody& fb) {
+Ptr<AST::Ty> TypeChecker::TypeCheckerImpl::SynthesizeWithUsing(const CheckerContext& ctx, FuncBody& fb) {
     bool shouldCloseScope = EnterImplicitScopeForFuncBody(ctx.Ctx(), fb);
     Ptr<AST::Ty> out = Synthesize(ctx, fb.body.get());
     if (shouldCloseScope) {
