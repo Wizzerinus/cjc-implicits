@@ -1153,11 +1153,11 @@ std::string BaseMangler::MangleFuncParams(const AST::FuncDecl& funcDecl, std::ve
     if (funcDecl.funcBody->implicitParamList.has_value()) {
         mangled += MANGLE_IMPLICIT_PREFIX;
         for (auto& param : funcDecl.funcBody->implicitParamList.value()->params) {
-            CJC_NULLPTR_CHECK(param->ty);
-            if (Ty::IsInitialTy(param->ty)) {
+            CJC_NULLPTR_CHECK(param->GetTy());
+            if (Ty::IsInitialTy(param->GetTy())) {
                 continue;
             }
-            mangled += MangleType(*param->ty, genericsTypeStack, declare, isCollectGTy);
+            mangled += MangleType(*param->GetTy(), genericsTypeStack, declare, isCollectGTy);
         }
     }
     return mangled;

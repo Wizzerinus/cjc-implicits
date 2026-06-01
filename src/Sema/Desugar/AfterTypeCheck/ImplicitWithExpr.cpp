@@ -36,7 +36,7 @@ void DesugarImplicitWithExpr(ImplicitWithExpr& iwe)
         nodes.emplace_back(std::move(decl));
     }
     iwe.synthesizedDecls.clear();
-    auto ty = iwe.body->ty;
+    auto ty = iwe.body->GetTy();
     for (auto& it : iwe.body->body) {
         nodes.push_back(std::move(it));
     }

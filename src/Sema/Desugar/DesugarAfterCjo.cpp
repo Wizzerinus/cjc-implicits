@@ -66,7 +66,7 @@ VisitAction ImplicitCalls::RewriteAnyType(Type& t)
 
 VisitAction ImplicitCalls::RewriteAnyNode(Node& n)
 {
-    RewriteType(n.ty);
+    RewriteType(n.GetTy());
     return VisitAction::WALK_CHILDREN;
 }
 

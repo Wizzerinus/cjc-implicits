@@ -2859,7 +2859,7 @@ bool TypeChecker::TypeCheckerImpl::PostCheckCallExpr(
         return false;
     }
 
-    return ValidateImplicitContext(ctx, ce, func.ty, typeMapping);
+    return ValidateImplicitContext(ctx, ce, func.GetTy(), typeMapping);
 }
 
 std::optional<std::string> GetExceptionNameFromThrowsType(Ptr<Ty> ty) {

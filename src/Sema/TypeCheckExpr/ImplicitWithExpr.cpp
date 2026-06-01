@@ -21,11 +21,11 @@ void TypeChecker::TypeCheckerImpl::EnsureImplicitDeclarations(ASTContext& ctx, I
             auto& child = iwe.children[i];
             auto ty = Synthesize(ctx, child);
             typeManager.ReplaceIdealTy(&ty);
-            child->ty = ty;
+            child->SetTy(ty);
             auto withType = MakeOwned<Type>();
-            withType->ty = ty;
+            withType->SetTy(ty);
             auto withDecl = CreateVarDecl("with$" + std::to_string(i), std::move(child), withType);
-            withDecl->ty = ty;
+            withDecl->SetTy(ty);
             decls.push_back(std::move(withDecl));
         }
         iwe.children.clear();
@@ -34,7 +34,7 @@ void TypeChecker::TypeCheckerImpl::EnsureImplicitDeclarations(ASTContext& ctx, I
 
     std::vector<ImplicitValue> impTys;
     for (auto& decl : iwe.synthesizedDecls) {
-        impTys.push_back(ImplicitValue{decl->ty, decl.get()});
+        impTys.push_back(ImplicitValue{decl->GetTy(), decl.get()});
     }
     scopeManager.EnterImplicitScope(ctx, ImplicitScope{std::move(impTys)});
 }
@@ -53,9 +53,9 @@ Ptr<Ty> TypeChecker::TypeCheckerImpl::SynImplicitWithExpr(ASTContext& ctx, Impli
 {
     scopeManager.InitializeScope(ctx);
     EnsureImplicitDeclarations(ctx, iwe);
-    iwe.ty = Synthesize(ctx, iwe.body.get());
-    iwe.body->ty = iwe.ty;
+    iwe.SetTy(Synthesize(ctx, iwe.body.get()));
+    iwe.body->SetTy(iwe.GetTy());
     scopeManager.ExitImplicitScope(ctx);
     scopeManager.FinalizeScope(ctx);
-    return iwe.ty;
+    return iwe.GetTy();
 }

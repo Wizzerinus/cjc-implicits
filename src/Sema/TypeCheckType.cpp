@@ -342,7 +342,7 @@ void TypeChecker::TypeCheckerImpl::CheckFuncType(ASTContext& ctx, FuncType& ft)
         }
         std::vector<Ptr<Ty>> types;
         for (auto& it : ft.usingType.value()->paramTypes) {
-            types.push_back(it->ty);
+            types.push_back(it->GetTy());
         }
         CheckTypesAreDistinct(ft, types);
     }

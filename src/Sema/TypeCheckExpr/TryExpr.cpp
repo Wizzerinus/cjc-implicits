@@ -47,9 +47,9 @@ bool TypeChecker::TypeCheckerImpl::SynthesizeTryCatch(CheckerContext& ctx, TryEx
 
         auto mkThrowsExpr = CreateRefExpr(*decls[0]);
         auto throwsType = MakeOwned<Type>();
-        throwsType->ty = throwsTy;
+        throwsType->SetTy(throwsTy);
         auto caughtType = MakeOwned<Type>();
-        caughtType->ty = caughtTy;
+        caughtType->SetTy(caughtTy);
         mkThrowsExpr->typeArguments.emplace_back(std::move(caughtType));
         auto throwsCall = CreateCallExpr(std::move(mkThrowsExpr), {}, fd, throwsTy, CallKind::CALL_STRUCT_CREATION);
         auto throwsDecl = CreateVarDecl("throwDecl$" + std::to_string(i), std::move(throwsCall), throwsType);
