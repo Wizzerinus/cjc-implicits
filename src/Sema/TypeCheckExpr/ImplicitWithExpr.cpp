@@ -19,8 +19,7 @@ void TypeChecker::TypeCheckerImpl::EnsureImplicitDeclarations(ASTContext& ctx, I
         std::vector<OwnedPtr<Decl>> decls;
         for (size_t i = 0; i < iwe.children.size(); i++) {
             auto& child = iwe.children[i];
-            auto ty = Synthesize(CheckerContext{ctx, SynPos::EXPR_ARG}, child);
-            typeManager.ReplaceIdealTy(ty);
+            auto ty = typeManager.ReplaceIdealTy(Synthesize(CheckerContext{ctx, SynPos::EXPR_ARG}, child));
             child->SetTy(ty);
             auto withType = MakeOwned<Type>();
             withType->SetTy(ty);
