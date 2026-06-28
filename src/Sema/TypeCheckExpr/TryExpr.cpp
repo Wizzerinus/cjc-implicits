@@ -21,22 +21,24 @@ using namespace TypeCheckUtil;
 
 bool TypeChecker::TypeCheckerImpl::SynthesizeTryCatch(const CheckerContext& ctx, TryExpr& te)
 {
+    if (te.wereCapabilitiesInserted) {
+        return SynthesizeAndReplaceIdealTy(ctx, *te.tryBlock);
+    }
     auto throwsStruct = importManager.GetCoreDecl<StructDecl>("Throws");
-    if (throwsStruct == nullptr) {
+    if (throwsStruct == nullptr || te.wereCapabilitiesInserted) {
         // Old stdlib, can't synthesize throws
         return SynthesizeAndReplaceIdealTy(ctx, *te.tryBlock);
     }
     auto& decls = throwsStruct->GetMemberDecls();
-    if (decls.size() != 1) {
-        diag.DiagnoseRefactor(DiagKindRefactor::sema_incompatible_throws_struct, te);
-        return false;
-    }
+    CJC_ASSERT_WITH_MSG(decls.size() == 1, "Throws struct must have 1 member decl");
     auto firstDecl = decls[0].get();
     auto fd = DynamicCast<FuncDecl>(firstDecl);
-    if (fd == nullptr) {
-        diag.DiagnoseRefactor(DiagKindRefactor::sema_incompatible_throws_struct, te);
-        return false;
+    CJC_ASSERT_WITH_MSG(fd != nullptr, "Throws struct must have a FuncDecl inside it");
+    if (Ty::IsInitialTy(fd->GetTy())) {
+        // We're currently building std.core, so Throws<> might not yet be fully type checked.
+        return SynthesizeAndReplaceIdealTy(ctx, *te.tryBlock);
     }
+    te.wereCapabilitiesInserted = true;
 
     std::vector<ImplicitValue> impTys;
     auto caughtTys = GenerateTryExprCaughtTypes(ctx.Ctx(), te);
@@ -48,7 +50,7 @@ bool TypeChecker::TypeCheckerImpl::SynthesizeTryCatch(const CheckerContext& ctx,
         auto& caughtTy = caughtTys.value()[i];
         auto throwsTy = typeManager.GetStructTy(*throwsStruct, {caughtTy});
 
-        auto mkThrowsExpr = CreateRefExpr(*decls[0]);
+        auto mkThrowsExpr = CreateRefExpr(*fd);
         auto throwsType = MakeOwned<Type>();
         throwsType->SetTy(throwsTy);
         auto caughtType = MakeOwned<Type>();
