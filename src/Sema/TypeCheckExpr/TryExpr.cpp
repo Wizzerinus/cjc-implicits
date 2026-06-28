@@ -21,11 +21,8 @@ using namespace TypeCheckUtil;
 
 bool TypeChecker::TypeCheckerImpl::SynthesizeTryCatch(const CheckerContext& ctx, TryExpr& te)
 {
-    if (te.wereCapabilitiesInserted) {
-        return SynthesizeAndReplaceIdealTy(ctx, *te.tryBlock);
-    }
     auto throwsStruct = importManager.GetCoreDecl<StructDecl>("Throws");
-    if (throwsStruct == nullptr || te.wereCapabilitiesInserted) {
+    if (throwsStruct == nullptr) {
         // Old stdlib, can't synthesize throws
         return SynthesizeAndReplaceIdealTy(ctx, *te.tryBlock);
     }
@@ -38,7 +35,15 @@ bool TypeChecker::TypeCheckerImpl::SynthesizeTryCatch(const CheckerContext& ctx,
         // We're currently building std.core, so Throws<> might not yet be fully type checked.
         return SynthesizeAndReplaceIdealTy(ctx, *te.tryBlock);
     }
-    te.wereCapabilitiesInserted = true;
+
+    // Remove any stale throwDecl$ entries from a previous insertion that was cleared.
+    // This ensures the function is idempotent even if wereCapabilitiesInserted is reset by Clear().
+    Utils::EraseIf(te.tryBlock->body, [](const OwnedPtr<Node>& node) {
+        if (auto vd = DynamicCast<VarDecl>(node.get())) {
+            return vd->identifier.Val().find("throwDecl$") == 0;
+        }
+        return false;
+    });
 
     std::vector<ImplicitValue> impTys;
     auto caughtTys = GenerateTryExprCaughtTypes(ctx.Ctx(), te);
