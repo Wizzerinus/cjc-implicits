@@ -997,7 +997,7 @@ OwnedPtr<FuncDecl> Utils::CreateNativeFunc(std::string& name,
     funcBody->curFile = &curFile;
     funcBody->paramLists.emplace_back(CreateFuncParamList(std::move(params)));
 
-    auto funcTy = typeManager.GetFunctionTy(funcTyParams, retTy, {.isC = true});
+    auto funcTy = typeManager.GetFunctionTy(funcTyParams, {}, retTy, {.isC = true});
     auto fdecl = CreateFuncDecl(name, std::move(funcBody), funcTy);
     fdecl->funcBody->funcDecl = fdecl.get();
     fdecl->EnableAttr(Attribute::C);

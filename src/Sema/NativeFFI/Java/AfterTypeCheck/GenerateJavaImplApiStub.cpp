@@ -39,7 +39,7 @@ OwnedPtr<AST::FuncDecl> GenerateJavaImplWrappingConstructorStub::CreateWrappingC
     std::vector<Ptr<Ty>> paramTys;
     paramTys.push_back(entityParam.GetTy());
     paramTys.push_back(regIdParam.GetTy());
-    auto ctorTy = typeManager.GetFunctionTy(paramTys, refWrapper.GetTy());
+    auto ctorTy = typeManager.GetFunctionTy(paramTys, {}, refWrapper.GetTy());
 
     ctor->funcBody->SetTy(ctorTy);
     ctor->SetTy(ctorTy);

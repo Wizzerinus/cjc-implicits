@@ -185,7 +185,7 @@ OwnedPtr<FuncDecl> GenerateInJavaImplReferenceWrapper::GenerateJavaSideConstruct
     for (auto paramTy : StaticCast<FuncTy*>(userCtor.GetTy().get())->paramTys) {
         paramTys.push_back(paramTy);
     }
-    auto ctorTy = typeManager.GetFunctionTy(paramTys, StaticCast<FuncTy*>(userCtor.GetTy().get())->retTy);
+    auto ctorTy = typeManager.GetFunctionTy(paramTys, {}, StaticCast<FuncTy*>(userCtor.GetTy().get())->retTy);
 
     auto superCall = CreateSuperCall(refWrapper, *parentCtor, parentCtor->GetTy());
     superCall->args.push_back(CreateFuncArg(WithinFile(CreateRefExpr(entityParam), curFile)));

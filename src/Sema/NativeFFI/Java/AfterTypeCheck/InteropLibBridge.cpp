@@ -1715,7 +1715,7 @@ OwnedPtr<FuncDecl> InteropLibBridge::CreateDeletingGlobalRefFinalizer(ClassDecl&
     fbody->paramLists.emplace_back(MakeOwned<FuncParamList>());
     auto delCall = CreateDeleteGlobalRefCall(CreateGetJniEnvCall(curFile), CreateJavaRefCall(decl, curFile));
     fbody->body->body.emplace_back(std::move(delCall));
-    auto fd = CreateFuncDecl("~init", std::move(fbody), typeManager.GetFunctionTy({}, unitTy));
+    auto fd = CreateFuncDecl("~init", std::move(fbody), typeManager.GetFunctionTy({}, {}, unitTy));
     fd->EnableAttr(Attribute::PRIVATE, Attribute::FINALIZER, Attribute::IN_CLASSLIKE);
     fd->linkage = Linkage::EXTERNAL;
     fd->funcBody->funcDecl = fd.get();

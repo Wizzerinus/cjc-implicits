@@ -237,7 +237,7 @@ OwnedPtr<FuncDecl> DesugarJavaImplSuperConstructorCall::CreateMemberFunc4Argumen
     OwnedPtr<FuncDecl> memberFn = CreateFuncDecl(funcName, MakeOwned<FuncBody>());
     auto& funcBody = *memberFn->funcBody;
     funcBody.SetTy(arg.expr->GetTy());
-    memberFn->SetTy(typeManager.GetFunctionTy(funcTyParams, arg.expr->GetTy()));
+    memberFn->SetTy(typeManager.GetFunctionTy(funcTyParams, {}, arg.expr->GetTy()));
     funcBody.funcDecl = memberFn;
     funcBody.body = MakeOwned<Block>();
     auto& body = *funcBody.body;
