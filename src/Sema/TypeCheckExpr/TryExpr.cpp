@@ -56,13 +56,19 @@ bool TypeChecker::TypeCheckerImpl::SynthesizeTryCatch(const CheckerContext& ctx,
         auto throwsTy = typeManager.GetStructTy(*throwsStruct, {caughtTy});
 
         auto mkThrowsExpr = CreateRefExpr(*fd);
+        mkThrowsExpr->begin = mkThrowsExpr->end = te.begin;
+        mkThrowsExpr->curFile = te.curFile;
         auto throwsType = MakeOwned<Type>();
         throwsType->SetTy(throwsTy);
         auto caughtType = MakeOwned<Type>();
         caughtType->SetTy(caughtTy);
         mkThrowsExpr->typeArguments.emplace_back(std::move(caughtType));
         auto throwsCall = CreateCallExpr(std::move(mkThrowsExpr), {}, fd, throwsTy, CallKind::CALL_STRUCT_CREATION);
+        throwsCall->begin = throwsCall->end = te.begin;
+        throwsCall->curFile = te.curFile;
         auto throwsDecl = CreateVarDecl("throwDecl$" + std::to_string(i), std::move(throwsCall), throwsType);
+        throwsDecl->begin = throwsDecl->end = te.begin;
+        throwsDecl->curFile = te.curFile;
 
         impTys.push_back(ImplicitValue{throwsTy, throwsDecl});
         tryBlockCode.push_back(std::move(throwsDecl));

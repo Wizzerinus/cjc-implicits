@@ -511,7 +511,7 @@ void Translator::BlackBoxModifyArgTypeToRef(std::vector<Value*>& args)
         arg = newArg;
     }
 }
- 
+
 Ptr<Value> Translator::TranslateIntrinsicCall(const AST::CallExpr& expr)
 {
     // Conditions to check if this is a call to intrinsic
@@ -743,6 +743,11 @@ Value* Translator::TranslateStructOrClassCtorCall(const AST::CallExpr& expr)
             // should be: return nullptr;
         }
         auto load = CreateAndAppendExpression<Load>(loc, thisTy, args[0], currentBlock);
+        // Throws<> calls may be generated extraneously
+        // forgive me for the implementation
+        if (expr.resolvedFunction->outerDecl->identifier == "Throws" && expr.resolvedFunction->outerDecl->fullPackageName == "std.core") {
+            load->Set<SkipCheck>(SkipKind::SKIP_DCE_WARNING);
+        }
         // this load should be removed if it is a super/this call, but it will trigger IRChecker error in:
         if (IsSuperOrThisCall(expr)) {
             load->Set<SkipCheck>(SkipKind::SKIP_DCE_WARNING);
