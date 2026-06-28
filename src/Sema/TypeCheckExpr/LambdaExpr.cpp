@@ -11,6 +11,8 @@
 #include "TypeCheckUtil.h"
 #include "ExtraScopes.h"
 
+#include "cangjie/AST/Create.h"
+
 using namespace Cangjie;
 using namespace AST;
 using namespace Sema;
@@ -406,10 +408,11 @@ bool TypeChecker::TypeCheckerImpl::ChkLamExpr(ASTContext& ctx, Ty& target, Lambd
         ClearLambdaBodyForReCheck(le);
 
         // Should not be short-circuited.
-        if (ChkLamBody(ctx, *le.funcBody) && paramsMatched) {
+        if (ChkLamBody(ctx, target, *le.funcBody) && paramsMatched) {
             ds.ReportDiag();
             // The call to GetFunctionTy is necessary to create (cached) CPointer types if necessary.
-            le.funcBody->SetTy(typeManager.GetFunctionTy(lamParamTys, StaticCast<FuncTy*>(le.funcBody->GetTy())->retTy,
+            le.funcBody->SetTy(typeManager.GetFunctionTy(lamParamTys, GetFuncBodyImplicitParamTys(*le.funcBody),
+                StaticCast<FuncTy*>(le.funcBody->GetTy())->retTy,
                 {tgtTy->isC, tgtTy->isClosureTy, tgtTy->hasVariableLenArg}));
             le.SetTy(le.funcBody->GetTy());
             return true;
@@ -464,9 +467,32 @@ bool TypeChecker::TypeCheckerImpl::ChkLamParamTys(
     return true;
 }
 
-bool TypeChecker::TypeCheckerImpl::ChkLamBody(ASTContext& ctx, FuncBody& lamFb)
-{
-    if (CheckFuncBody(ctx, lamFb) && Ty::IsTyCorrect(lamFb.GetTy()) && Ty::IsTyCorrect(lamFb.body->GetTy())) {
+bool TypeChecker::TypeCheckerImpl::ChkLamBody(ASTContext& ctx, Ty& targetTy, FuncBody& lamFb) {
+    bool shouldCloseScope = false;
+    if (auto funcTy = DynamicCast<FuncTy>(&targetTy)) {
+        if (!funcTy->implicitParamTys.empty()) {
+            shouldCloseScope = true;
+            std::vector<ImplicitValue> impTys;
+            CJC_ASSERT(!lamFb.implicitParamList.has_value());
+            std::vector<OwnedPtr<FuncParam>> genParams;
+            for (size_t i = 0; i < funcTy->implicitParamTys.size(); i++) {
+                auto& argTy = funcTy->implicitParamTys[i];
+                auto paramType = MakeOwned<Type>();
+                paramType->SetTy(argTy);
+                auto funcParam = CreateFuncParam("lambda_imp$" + std::to_string(i), std::move(paramType), nullptr, argTy);
+                impTys.push_back(ImplicitValue{argTy, funcParam});
+                genParams.emplace_back(std::move(funcParam));
+            }
+            lamFb.implicitParamList = CreateFuncParamList(std::move(genParams));
+            scopeManager.EnterImplicitScope(ctx, ImplicitScope{std::move(impTys)});
+        }
+    }
+    bool result = CheckFuncBody(ctx, lamFb) && Ty::IsTyCorrect(lamFb.GetTy()) && Ty::IsTyCorrect(lamFb.body->GetTy());
+    if (shouldCloseScope) {
+        scopeManager.ExitImplicitScope(ctx);
+    }
+    
+    if (result) {
         return true;
     }
     // Since the return type of lambda body is added in 'ChkLamExpr', all type mismatching errors are reported before.

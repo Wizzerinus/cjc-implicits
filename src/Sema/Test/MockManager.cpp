@@ -582,7 +582,7 @@ OwnedPtr<MatchCase> MockManager::CreateOnCallCallBaseMatchCase(
     auto someOuterDecl = Sema::Desugar::AfterTypeCheck::LookupEnumMember(mockUtils->optionDecl, OPTION_VALUE_CTOR);
     auto someOuterDeclRef = CreateRefExpr(*someOuterDecl);
     auto optionOuterDeclTy = typeManager.GetEnumTy(*mockUtils->optionDecl, {typeManager.GetAnyTy()});
-    someOuterDeclRef->SetTy(typeManager.GetFunctionTy({typeManager.GetAnyTy()}, optionOuterDeclTy));
+    someOuterDeclRef->SetTy(typeManager.GetFunctionTy({typeManager.GetAnyTy()}, {}, optionOuterDeclTy));
 
     std::vector<OwnedPtr<FuncArg>> someOuterDeclCallArgs {};
     someOuterDeclCallArgs.emplace_back(CreateFuncArg(std::move(thisRef)));
@@ -672,7 +672,7 @@ OwnedPtr<MatchCase> MockManager::CreateOnCallReturnDefaultMatchCase(
 
         auto defaultValueProviderMemberAccess =
             CreateMemberAccess(std::move(defaultValueProviderRef), DEFAULT_VALUE_FOR_STUB_METHOD_NAME);
-        defaultValueProviderMemberAccess->SetTy(typeManager.GetFunctionTy({}, retTy));
+        defaultValueProviderMemberAccess->SetTy(typeManager.GetFunctionTy({}, {}, retTy));
         defaultValueProviderMemberAccess->target = defaultValueProviderDecl;
 
         auto defaultValueProviderCall = MakeOwned<CallExpr>();
@@ -740,7 +740,7 @@ OwnedPtr<FuncDecl> MockManager::CreateEmptyConstructorDecl(
     std::vector<Ptr<Ty>> paramTys;
     std::for_each(params.begin(), params.end(),
         [&paramTys](const OwnedPtr<FuncParam>& param) { paramTys.emplace_back(param->GetTy()); });
-    constructorDecl->SetTy(typeManager.GetFunctionTy(paramTys, mockedClass.GetTy()));
+    constructorDecl->SetTy(typeManager.GetFunctionTy(paramTys, {}, mockedClass.GetTy()));
     constructorDecl->EnableAttr(Attribute::IN_CLASSLIKE);
 
     std::vector<OwnedPtr<FuncParamList>> constructorParamLists;
@@ -944,7 +944,7 @@ OwnedPtr<Expr> MockManager::CreateOuterDeclInfo(FuncDecl& funcDecl, File& curFil
     if (funcDecl.outerDecl) {
         auto someOuterDeclIdDecl = Sema::Desugar::AfterTypeCheck::LookupEnumMember(optionDecl, OPTION_VALUE_CTOR);
         auto someInstanceRef = CreateRefExpr(*someOuterDeclIdDecl);
-        someInstanceRef->SetTy(typeManager.GetFunctionTy({declIdDecl->GetTy()}, optionOuterIdDeclTy));
+        someInstanceRef->SetTy(typeManager.GetFunctionTy({declIdDecl->GetTy()}, {}, optionOuterIdDeclTy));
 
         Ptr<Decl> outerDecl = funcDecl.outerDecl;
         if (funcDecl.TestAttr(Attribute::IN_EXTEND)) {
@@ -1035,7 +1035,7 @@ OwnedPtr<CallExpr> MockManager::CreateCallInfo(
         auto someInstanceDecl = Sema::Desugar::AfterTypeCheck::LookupEnumMember(
             mockUtils->optionDecl, OPTION_VALUE_CTOR);
         auto someInstanceRef = CreateRefExpr(*someInstanceDecl);
-        someInstanceRef->SetTy(typeManager.GetFunctionTy({mockUtils->objectDecl->GetTy()}, optionObjectTy));
+        someInstanceRef->SetTy(typeManager.GetFunctionTy({mockUtils->objectDecl->GetTy()}, {}, optionObjectTy));
 
         std::vector<OwnedPtr<FuncArg>> someInstancCallArgs {};
         someInstancCallArgs.emplace_back(CreateFuncArg(std::move(objRef)));
@@ -1279,7 +1279,7 @@ std::vector<OwnedPtr<MatchCase>> MockManager::GenerateCallHandlerCases(FuncDecl&
         if (matchCase) {
             auto someCaseDecl = Sema::Desugar::AfterTypeCheck::LookupEnumMember(optionFuncRet, OPTION_VALUE_CTOR);
             auto someCaseRef = CreateRefExpr(*someCaseDecl);
-            someCaseRef->SetTy(typeManager.GetFunctionTy({handlerRetTy}, optionFuncRetTy));
+            someCaseRef->SetTy(typeManager.GetFunctionTy({handlerRetTy}, {}, optionFuncRetTy));
 
             std::vector<OwnedPtr<FuncArg>> someCaseCallArgs {};
             auto firstExpr = As<ASTKind::EXPR>(matchCase->exprOrDecls->body[0]);
@@ -1357,7 +1357,7 @@ OwnedPtr<Expr> MockManager::GetMockedObjectHandler(OwnedPtr<RefExpr> objRef, con
 OwnedPtr<Expr> MockManager::GetCurrentStaticHandler(const Ptr<File> curFile)
 {
     auto currentStaticMa = CreateMemberAccess(CreateRefExpr(*callHandlerDecl), CURRENT_STATIC_FUNC_NAME);
-    currentStaticMa->SetTy(typeManager.GetFunctionTy({}, callHandlerDecl->GetTy()));
+    currentStaticMa->SetTy(typeManager.GetFunctionTy({}, {}, callHandlerDecl->GetTy()));
     auto target = currentStaticMa->target;
     auto currentStaticCall = CreateCallExpr(std::move(currentStaticMa), {});
     currentStaticCall->resolvedFunction = As<ASTKind::FUNC_DECL>(target);
@@ -1384,8 +1384,8 @@ OwnedPtr<LambdaExpr> MockManager::GenerateCallHandlerLambda(
     auto toStrArrayTy = typeManager.GetStructTy(*mockUtils->arrayDecl, {mockUtils->toStringDecl->GetTy()});
     auto objectTy = typeManager.GetClassTy(*mockUtils->objectDecl, {});
     auto funcTy = isMethod
-        ? typeManager.GetFunctionTy({objectTy, arrayTy, toStrArrayTy}, optionFuncRetTy)
-        : typeManager.GetFunctionTy({arrayTy, toStrArrayTy}, optionFuncRetTy);
+        ? typeManager.GetFunctionTy({objectTy, arrayTy, toStrArrayTy}, {}, optionFuncRetTy)
+        : typeManager.GetFunctionTy({arrayTy, toStrArrayTy}, {}, optionFuncRetTy);
 
     auto funcParamObj = CreateFuncParam(OBJECT_PARAM_NAME_FOR_HANDLER_LAMBDA, nullptr, nullptr, objectTy);
     auto funcParamObjRef = MakeOwned<RefExpr>();
@@ -1538,12 +1538,12 @@ void MockManager::GenerateCallHandlerForStaticDecl(FuncDecl& decl, Expr& injectT
     auto toStrArrayTy = typeManager.GetStructTy(*mockUtils->arrayDecl, {mockUtils->toStringDecl->GetTy()});
     auto objectTy = typeManager.GetClassTy(*mockUtils->objectDecl, {});
     auto funcTy = isMethod
-        ? typeManager.GetFunctionTy({objectTy, arrayTy, toStrArrayTy}, optionFuncRetTy)
-        : typeManager.GetFunctionTy({arrayTy, toStrArrayTy}, optionFuncRetTy);
+        ? typeManager.GetFunctionTy({objectTy, arrayTy, toStrArrayTy}, {}, optionFuncRetTy)
+        : typeManager.GetFunctionTy({arrayTy, toStrArrayTy}, {}, optionFuncRetTy);
     auto optionFuncTy = typeManager.GetEnumTy(*mockUtils->optionDecl, { funcTy });
     auto handlerSomeDecl = Sema::Desugar::AfterTypeCheck::LookupEnumMember(optionFuncTy->decl, OPTION_VALUE_CTOR);
     auto handlerSomeRef = CreateRefExpr(*handlerSomeDecl);
-    handlerSomeRef->SetTy(typeManager.GetFunctionTy({funcTy}, optionFuncTy));
+    handlerSomeRef->SetTy(typeManager.GetFunctionTy({funcTy}, {}, optionFuncTy));
 
     std::vector<OwnedPtr<FuncArg>> handlerSomeCallArgs {};
     handlerSomeCallArgs.emplace_back(CreateFuncArg(GenerateCallHandlerLambda(decl, injectTo, declForInfo)));

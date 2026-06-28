@@ -41,6 +41,10 @@ public:
     {
         return true;
     }
+    bool PerformDesugarAfterCjo() override
+    {
+        return true;
+    }
     // use DefaultCompilerInstance::PerformMangling
     bool PerformCHIRCompilation() override
     {

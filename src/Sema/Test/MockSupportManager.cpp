@@ -422,8 +422,8 @@ void MockSupportManager::PrepareStaticDecl(Decl& decl)
     auto toStrArrayTy = typeManager.GetStructTy(*mockUtils->arrayDecl, {mockUtils->toStringDecl->GetTy()});
     auto objectTy = typeManager.GetClassTy(*mockUtils->objectDecl, {});
     auto funcTy = isMethod
-        ? typeManager.GetFunctionTy({objectTy, arrayTy, toStrArrayTy}, optionFuncRetTy)
-        : typeManager.GetFunctionTy({arrayTy, toStrArrayTy}, optionFuncRetTy);
+        ? typeManager.GetFunctionTy({objectTy, arrayTy, toStrArrayTy}, {}, optionFuncRetTy)
+        : typeManager.GetFunctionTy({arrayTy, toStrArrayTy}, {}, optionFuncRetTy);
     auto optionFuncTy = typeManager.GetEnumTy(*mockUtils->optionDecl, { funcTy });
     auto noneCtor = CreateRefExpr(*LookupEnumMember(optionFuncTy->decl, OPTION_NONE_CTOR));
     noneCtor->curFile = decl.curFile;
@@ -1099,8 +1099,8 @@ OwnedPtr<FuncDecl> MockSupportManager::GenerateVarDeclAccessor(VarDecl& fieldDec
     auto isGetter = mockUtils->IsGeneratedGetter(kind);
 
     FuncTy* accessorTy = isGetter
-        ? typeManager.GetFunctionTy({}, fieldDecl.GetTy())
-        : typeManager.GetFunctionTy({fieldDecl.GetTy()}, TypeManager::GetPrimitiveTy(TypeKind::TYPE_UNIT));
+        ? typeManager.GetFunctionTy({}, {}, fieldDecl.GetTy())
+        : typeManager.GetFunctionTy({fieldDecl.GetTy()}, {}, TypeManager::GetPrimitiveTy(TypeKind::TYPE_UNIT));
     std::vector<OwnedPtr<Node>> body;
     std::vector<OwnedPtr<FuncParam>> accessorParams {};
 
@@ -1254,7 +1254,7 @@ void MockSupportManager::TransformAccessorCallForMutOperation(
 
     auto lambda = CreateLambdaExpr(CreateFuncBody(std::move(paramLists),
         MockUtils::CreateType<Type>(replacedNre.GetTy()), CreateBlock(std::move(nodes), ty), ty));
-    lambda->SetTy(typeManager.GetFunctionTy({}, ty));
+    lambda->SetTy(typeManager.GetFunctionTy({}, {}, ty));
     lambda->funcBody->SetTy(lambda->GetTy());
 
     topLevelExpr.desugarExpr = CreateCallExpr(std::move(lambda), {}, nullptr, ty);
@@ -1740,14 +1740,14 @@ OwnedPtr<CallExpr> MockSupportManager::GenerateAccessorCallForField(OwnedPtr<Exp
     switch (kind) {
         case AccessorKind::FIELD_GETTER:
         case AccessorKind::STATIC_FIELD_GETTER: {
-            nameRefExpr->SetTy(typeManager.GetFunctionTy({}, memberRefTy));
+            nameRefExpr->SetTy(typeManager.GetFunctionTy({}, {}, memberRefTy));
             accessorCall->SetTy(memberRefTy);
             break;
         }
         case AccessorKind::FIELD_SETTER:
         case AccessorKind::STATIC_FIELD_SETTER: {
             nameRefExpr->SetTy(
-                typeManager.GetFunctionTy({memberRefTy}, TypeManager::GetPrimitiveTy(TypeKind::TYPE_UNIT)));
+                typeManager.GetFunctionTy({memberRefTy}, {}, TypeManager::GetPrimitiveTy(TypeKind::TYPE_UNIT)));
             accessorCall->SetTy(TypeManager::GetPrimitiveTy(TypeKind::TYPE_UNIT));
             break;
         }

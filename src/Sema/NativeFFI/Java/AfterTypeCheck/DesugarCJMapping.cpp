@@ -219,7 +219,7 @@ OwnedPtr<StructDecl> JavaDesugarManager::CreateHelperStructDecl(const Ptr<TupleT
     for (auto& param : funcBody->paramLists[0]->params) {
         funcTyParams.push_back(param->GetTy());
     }
-    auto funcTy = typeManager.GetFunctionTy(funcTyParams, retTy);
+    auto funcTy = typeManager.GetFunctionTy(funcTyParams, {}, retTy);
     auto fdecl = CreateFuncDecl("init", std::move(funcBody), funcTy);
     fdecl->funcBody->funcDecl = fdecl.get();
     fdecl->EnableAttr(Attribute::PUBLIC);
@@ -476,7 +476,7 @@ OwnedPtr<AST::MemberAccess> JavaDesugarManager::GenThisMemAcessForSelfMethod(
                 typeArg->HasGeneric() ? GetGenericInstTy(genericConfig, typeArg, typeManager) : typeArg);
         }
 
-        funcTy = typeManager.GetFunctionTy(tmpParamTys, retTy);
+        funcTy = typeManager.GetFunctionTy(tmpParamTys, {}, retTy);
         funcTy->typeArgs = tmpTypeArgs;
     } else {
         interfaceTy = interfaceDecl->GetTy();
@@ -695,7 +695,7 @@ OwnedPtr<FuncDecl> JavaDesugarManager::GenerateFwdClassCtor(
     auto unitTy = TypeManager::GetPrimitiveTy(TypeKind::TYPE_UNIT);
     auto maskAssignment = CreateAssignExpr(std::move(lhsMask), std::move(rhsMask), unitTy);
 
-    auto ctorTy = typeManager.GetFunctionTy(paramTys, fwdDecl.GetTy());
+    auto ctorTy = typeManager.GetFunctionTy(paramTys, {}, fwdDecl.GetTy());
 
     auto superCall = CreateSuperCall(*oriCtorDecl.outerDecl, oriCtorDecl, oriCtorDecl.GetTy());
     for (auto& param : ctor->funcBody->paramLists[0]->params) {
@@ -734,7 +734,7 @@ void JavaDesugarManager::InsertAttachCJObject(ClassDecl& fwdDecl, ClassDecl& cla
 
     auto javaEnvFuncParam = lib.CreateEnvFuncParam();
 
-    auto funcTy = typeManager.GetFunctionTy({javaEnvFuncParam->GetTy()}, javaCffiEntityTy);
+    auto funcTy = typeManager.GetFunctionTy({javaEnvFuncParam->GetTy()}, {}, javaCffiEntityTy);
 
     std::vector<OwnedPtr<Node>> bodyNodes;
 
@@ -1037,7 +1037,7 @@ Ptr<FuncTy> JavaDesugarManager::GetLambdaFuncTy(LambdaPattern& lambdaPattern)
     for (auto& paramStr : lambdaPattern.parameterTypes) {
         lambdaParamTys.push_back(GetTyByName(paramStr));
     }
-    auto retTy = typeManager.GetFunctionTy(lambdaParamTys, GetTyByName(lambdaPattern.returnType));
+    auto retTy = typeManager.GetFunctionTy(lambdaParamTys, {}, GetTyByName(lambdaPattern.returnType));
     return retTy;
 }
 
@@ -1090,7 +1090,7 @@ void JavaDesugarManager::GenerateLambdaGlueCode(File& file)
         nodes.push_back(std::move(returnExpr));
         auto block = CreateBlock(std::move(nodes), TypeManager::GetNothingTy());
 
-        auto funcTy = typeManager.GetFunctionTy({objParam.GetTy()}, lambdaTy);
+        auto funcTy = typeManager.GetFunctionTy({objParam.GetTy()}, {}, lambdaTy);
         std::vector<OwnedPtr<FuncParamList>> paramLists;
         paramLists.push_back(std::move(funcParamList));
         auto body =
@@ -1170,7 +1170,7 @@ OwnedPtr<LambdaExpr> JavaDesugarManager::GenerateLambdaExpr(File& file, LambdaPa
 
     auto block = CreateBlock(std::move(nodes), TypeManager::GetNothingTy());
 
-    auto funcTy = typeManager.GetFunctionTy(paramTys, retTy);
+    auto funcTy = typeManager.GetFunctionTy(paramTys, {}, retTy);
 
     std::vector<OwnedPtr<FuncParamList>> paramLists;
     paramLists.push_back(std::move(funcParamList));

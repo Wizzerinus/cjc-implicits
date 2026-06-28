@@ -967,6 +967,13 @@ void PrintCallExpr(unsigned indent, const CallExpr& expr, std::ostream& stream =
         }
         PrintIndent(stream, indent + ONE_INDENT, "]");
     }
+    if (!expr.implicitlyAssignedArgs.empty()) {
+        PrintIndent(stream, indent + ONE_INDENT, "implicit arguments [");
+        for (auto& it : expr.implicitlyAssignedArgs) {
+            PrintNode(it.get(), indent + TWO_INDENT, "", stream);
+        }
+        PrintIndent(stream, indent + ONE_INDENT, "]");
+    }
     if (expr.resolvedFunction) {
         PrintTarget(indent + ONE_INDENT, *expr.resolvedFunction, stream, "resolvedFunction");
     }
@@ -1115,6 +1122,24 @@ void PrintSynchronizedExpr(unsigned indent, const SynchronizedExpr& expr, std::o
     PrintIndent(stream, indent, "SynchronizedExpr {");
     PrintBasic(indent + ONE_INDENT, expr, stream);
     PrintNode(expr.mutex.get(), indent + TWO_INDENT, "mutex", stream);
+    PrintNode(expr.body.get(), indent + TWO_INDENT, "body", stream);
+    PrintIndent(stream, indent, "}");
+}
+
+void PrintImplicitWithExpr(unsigned indent, const ImplicitWithExpr& expr, std::ostream& stream = std::cout)
+{
+    PrintIndent(stream, indent, "ImplicitWithExpr {");
+    PrintBasic(indent + ONE_INDENT, expr, stream);
+    PrintIndent(stream, indent + TWO_INDENT, "Children {");
+    for (auto& child : expr.children) {
+        PrintNode(child.get(), indent + THREE_INDENT, "", stream);
+    }
+    PrintIndent(stream, indent + TWO_INDENT, "}");
+    PrintIndent(stream, indent + TWO_INDENT, "SynthesizedDecls {");
+    for (auto& child : expr.synthesizedDecls) {
+        PrintNode(child.get(), indent + THREE_INDENT, "", stream);
+    }
+    PrintIndent(stream, indent + TWO_INDENT, "}");
     PrintNode(expr.body.get(), indent + TWO_INDENT, "body", stream);
     PrintIndent(stream, indent, "}");
 }
@@ -1564,6 +1589,7 @@ void PrintNode(Ptr<const Node> node, unsigned indent, const std::string& additio
         },
         [&indent, &stream](const SpawnExpr& expr) { PrintSpawnExpr(indent, expr, stream); },
         [&indent, &stream](const SynchronizedExpr& expr) { PrintSynchronizedExpr(indent, expr, stream); },
+        [&indent, &stream](const ImplicitWithExpr& expr) { PrintImplicitWithExpr(indent, expr, stream); },
         [&indent, &stream](
             const InvalidExpr& /* expr */) { PrintIndent(stream, indent, "InvalidExpr: Need to be fixed!"); },
         [&indent, &stream](const Block& block) { PrintBlock(indent, block, stream); },

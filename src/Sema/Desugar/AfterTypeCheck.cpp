@@ -136,7 +136,7 @@ std::vector<OwnedPtr<FuncArg>> GetFuncArgsForDesugaredPropDecl(
     auto leftBaseExpr = mapExpr ? CreateMemberAccess(ASTCloner::Clone(mapExpr), getFunc)
                                 : OwnedPtr<Expr>(CreateRefExpr(getFunc).release());
     // 'getFunc' may be generic type, which need to be update to real used type.
-    leftBaseExpr->SetTy(tyMgr.GetFunctionTy({}, &propTy));
+    leftBaseExpr->SetTy(tyMgr.GetFunctionTy({}, {}, &propTy));
     auto isMemberAccessSuperCall = false;
     if (auto ma = DynamicCast<MemberAccess*>(leftBaseExpr.get()); ma) {
         CJC_NULLPTR_CHECK(ma->baseExpr);
@@ -195,7 +195,7 @@ void DesugarGetForPropDecl(TypeManager& tyMgr, Expr& expr)
         baseExpr = CreateRefExpr(*getFunc);
     }
     // 'getFunc' may be generic type, which need to be update to real used type.
-    baseExpr->SetTy(tyMgr.GetFunctionTy({}, expr.GetTy()));
+    baseExpr->SetTy(tyMgr.GetFunctionTy({}, {}, expr.GetTy()));
     CopyBasicInfo(&expr, baseExpr.get());
     auto lastCallExpr = CreateCallExpr(std::move(baseExpr), {});
     lastCallExpr->callKind = isMemberAccessSuperCall ? CallKind::CALL_SUPER_FUNCTION : CallKind::CALL_DECLARED_FUNCTION;
@@ -246,7 +246,7 @@ void DesugarSetForPropDecl(TypeManager& tyMgr, Expr& expr)
         ? CreateMemberAccess(ASTCloner::Clone(RawStaticCast<MemberAccess*>(subExpr)->baseExpr.get()), *setFunc)
         : OwnedPtr<Expr>(CreateRefExpr(*setFunc).release());
     // 'setFunc' may be generic type, which need to be update to real used type.
-    baseExpr->SetTy(tyMgr.GetFunctionTy({subExpr->GetTy()}, TypeManager::GetPrimitiveTy(TypeKind::TYPE_UNIT)));
+    baseExpr->SetTy(tyMgr.GetFunctionTy({subExpr->GetTy()}, {}, TypeManager::GetPrimitiveTy(TypeKind::TYPE_UNIT)));
     CopyBasicInfo(subExpr, baseExpr.get());
     Ptr<Expr> basePtr = nullptr;
     // For refExpr case, 'a += b' is desugared to aSet(aGet() + b), there is no side effect to be handle.
@@ -508,7 +508,7 @@ void TypeChecker::TypeCheckerImpl::GenerateMainInvoke()
     }
     auto mainTy = funcTy->retTy;
     auto int64Ty = TypeManager::GetPrimitiveTy(TypeKind::TYPE_INT64);
-    auto mainInvokeTy = typeManager.GetFunctionTy(funcTy->paramTys, int64Ty);
+    auto mainInvokeTy = typeManager.GetFunctionTy(funcTy->paramTys, funcTy->implicitParamTys, int64Ty);
 
     // Creat mainInvoke function: "func $mainInvoke(v:Array<String>)" or "func $mainInvoke()".
     OwnedPtr<FuncBody> funcBody = MakeOwnedNode<FuncBody>();
@@ -643,6 +643,9 @@ void TypeChecker::TypeCheckerImpl::PerformDesugarAfterTypeCheck(ASTContext& ctx,
             case ASTKind::RESUME_EXPR:
                 DesugarResume(ctx, *StaticCast<ResumeExpr*>(node));
                 break;
+            case ASTKind::IMPLICIT_WITH_EXPR:
+                DesugarImplicitWithExpr(*StaticAs<ASTKind::IMPLICIT_WITH_EXPR>(node));
+                break;
             default:
                 break;
         }
@@ -674,7 +677,7 @@ OwnedPtr<AST::FuncDecl> TypeChecker::TypeCheckerImpl::CreateToAny(AST::Decl& out
     CJC_NULLPTR_CHECK(anyDecl);
     funcBody->retType = CreateRefType(*anyDecl);
 
-    funcBody->SetTy(typeManager.GetFunctionTy({}, typeManager.GetAnyTy()));
+    funcBody->SetTy(typeManager.GetFunctionTy({}, {}, typeManager.GetAnyTy()));
 
     auto fromTy = outerDecl.GetTy();
     auto funcParamList = MakeOwned<FuncParamList>();

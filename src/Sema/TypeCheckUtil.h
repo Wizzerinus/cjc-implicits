@@ -179,6 +179,7 @@ bool HaveCyclicSubstitution(TypeManager& tyMgr, const TypeSubst& typeMapping);
  */
 std::vector<Ptr<AST::Ty>> GetParamTys(const AST::FuncDecl& fd);
 std::vector<Ptr<AST::Ty>> GetFuncBodyParamTys(const AST::FuncBody& fb);
+std::vector<Ptr<AST::Ty>> GetFuncBodyImplicitParamTys(const AST::FuncBody& fb);
 /**
  * Check whether src is an override or implementation of target.
  */

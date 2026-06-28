@@ -56,7 +56,7 @@ bool TypeChecker::TypeCheckerImpl::CheckSpawnArgValid(const ASTContext& ctx, con
     // whose signature is `()->CPointer<Unit>`. If not, just prompts that the type is invalid.
     auto classLikeTy = StaticCast<ClassLikeTy*>(arg.GetTy());
     auto retTy = typeManager.GetPointerTy(TypeManager::GetPrimitiveTy(TypeKind::TYPE_UNIT));
-    auto funcTy = typeManager.GetFunctionTy({}, retTy);
+    auto funcTy = typeManager.GetFunctionTy({}, {}, retTy);
     CJC_NULLPTR_CHECK(arg.curFile);
     auto decls = FieldLookup(ctx, classLikeTy->commonDecl, "getSchedulerHandle", {.file = arg.curFile});
     if (decls.size() != 1 || decls[0]->astKind != ASTKind::FUNC_DECL ||
@@ -98,7 +98,7 @@ bool TypeChecker::TypeCheckerImpl::ChkSpawnExpr(ASTContext& ctx, Ty& tgtTy, Spaw
         }
         fuTy = *fuTys.begin();
     }
-    auto funcTy = typeManager.GetFunctionTy({}, fuTy->typeArgs.front());
+    auto funcTy = typeManager.GetFunctionTy({}, {}, fuTy->typeArgs.front());
     bool isWellTyped = !se.arg ||
         (Ty::IsTyCorrect(Synthesize({ctx, SynPos::EXPR_ARG}, se.arg.get())) &&
             CheckSpawnArgValid(ctx, *se.arg));

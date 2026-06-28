@@ -66,8 +66,10 @@ SUPPRESS_WARNING("-Wcast-function-type-mismatch")
         reinterpret_cast<ExprHandler>(&ParserImpl::ParseBreakJumpExpr),
         nullptr, nullptr, // IN, NOT_IN
         reinterpret_cast<ExprHandler>(&ParserImpl::ParseMatchExpr),
-        nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, // WHERE..OVERRIDE
-        nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, // REDEF..MUT
+        nullptr, nullptr,  // WHERE, EXTEND
+        reinterpret_cast<ExprHandler>(&ParserImpl::ParseImplicitWithExpr),
+        nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, // PROP..OVERRIDE
+        nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, // REDEF..MUT
         reinterpret_cast<ExprHandler>(&ParserImpl::ParseUnsafeBlock),
         nullptr, // OPERATOR
         reinterpret_cast<ExprHandler>(&ParserImpl::ParseSpawnExpr),
@@ -1414,6 +1416,37 @@ OwnedPtr<SynchronizedExpr> ParserImpl::ParseSynchronizedExpr()
     }
     ret->leftParenPos = lastToken.Begin();
     ret->mutex = ParseExpr();
+    if (!Skip(TokenKind::RPAREN) && !ret->TestAttr(Attribute::HAS_BROKEN)) {
+        DiagExpectedRightDelimiter("(", ret->leftParenPos);
+        ret->EnableAttr(Attribute::HAS_BROKEN);
+    }
+    ret->rightParenPos = lastToken.Begin();
+    ret->body = ParseBlock();
+    ret->end = ret->body->end;
+    return ret;
+}
+
+OwnedPtr<ImplicitWithExpr> ParserImpl::ParseImplicitWithExpr()
+{
+    OwnedPtr<ImplicitWithExpr> ret = MakeOwned<ImplicitWithExpr>();
+    ret->withPos = lastToken.Begin();
+    ret->begin = lookahead.Begin();
+    if (!Skip(TokenKind::LPAREN)) {
+        ParseDiagnoseRefactor(DiagKindRefactor::parse_expected_left_paren, lookahead, ConvertToken(lookahead));
+        ret->EnableAttr(Attribute::HAS_BROKEN);
+    }
+    ret->children.push_back(ParseExpr());
+    while (true) {
+        if (Seeing(TokenKind::RPAREN)) {
+            break;
+        } else if (Skip(TokenKind::COMMA)) {
+            ret->commaPosVector.emplace_back(lastToken.Begin());
+            ret->children.push_back(ParseExpr());
+        } else {
+            ParseDiagnoseRefactor(DiagKindRefactor::parse_expected_dot_lparen, lookahead, ConvertToken(lookahead));
+            ret->EnableAttr(Attribute::HAS_BROKEN);
+        }
+    }
     if (!Skip(TokenKind::RPAREN) && !ret->TestAttr(Attribute::HAS_BROKEN)) {
         DiagExpectedRightDelimiter("(", ret->leftParenPos);
         ret->EnableAttr(Attribute::HAS_BROKEN);

@@ -666,10 +666,16 @@ struct TupleTy : Ty {
 struct FuncTy : Ty {
     /**
      * Function param types.
-     * W: Sema.
+     * W: Sema, DesugarAfterCJO (to merge with implicit parameters).
      * R: ImportManager, Sema, GenericInstantiator, AST2CHIR, CHIR, HLIRCodeGen, LLVMCodeGen.
      */
-    const std::vector<Ptr<Ty>> paramTys{};
+    std::vector<Ptr<Ty>> paramTys{};
+    /**
+     * Implicit parameters that this function requires, in order of their application.
+     * W: Sema, DesugarAfterCJO.
+     * R: Sema, DesugarAfterCJO.
+     */
+    std::vector<Ptr<Ty>> implicitParamTys{};
     /**
      * Function return type.
      * W: no.
@@ -706,16 +712,20 @@ struct FuncTy : Ty {
         const bool hasVariableLenArg{false};
         const bool noCast{false};
     };
-    FuncTy(std::vector<Ptr<Ty>> paramVector, Ptr<Ty> rType, const Config cfg = {false, false, false, false})
+    FuncTy(std::vector<Ptr<Ty>> paramVector, std::vector<Ptr<Ty>> implicitParamVector, Ptr<Ty> rType, const Config cfg = {false, false, false, false})
         : Ty(TypeKind::TYPE_FUNC),
           paramTys(std::move(paramVector)),
+          implicitParamTys(std::move(implicitParamVector)),
           retTy(rType),
           isC(cfg.isC),
           isClosureTy(cfg.isClosureTy),
           hasVariableLenArg(cfg.hasVariableLenArg),
           noCast(cfg.noCast)
     {
-        typeArgs = paramTys;
+        typeArgs = implicitParamTys;
+        for (auto& imp : paramTys) {
+            typeArgs.emplace_back(imp);
+        }
         // Currently, only CFunc has variable length parameters.
         invalid = !Ty::AreTysCorrect(typeArgs) || !Ty::IsTyCorrect(rType) || (!isC && hasVariableLenArg);
         generic = Ty::ExistGeneric(typeArgs) || (rType && rType->HasGeneric());

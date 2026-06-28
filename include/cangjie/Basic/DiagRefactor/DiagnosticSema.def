@@ -421,4 +421,19 @@ WARNING(sema_hide_must_at_end, APILEVEL_CHECK, "annotation '%s' must be placed b
 
 WARNING(sema_unused_import, UNUSED, "unused import '%s'", "unused import")
 
+// implicit
+ERROR(sema_duplicate_implicits, "Found duplicate implicits (%s) of type '%s' while resolving a function call, %s scopes above the inner level")
+ERROR(sema_implicit_not_found, "Found no implicits of type '%s' while resolving a function call")
+ERROR(sema_unexpected_nonfunc_ty, "While validating implicits, expected to get a function type in this function call, but got '%s' instead. This is likely a bug in cjc.")
+ERROR(sema_invalid_implicit_ty, "An implicit type '%s' in a function call is invalid. This is likely a bug in cjc.")
+ERROR(sema_implicit_type_generic, "An implicit type '%s' in a function call contains generic type variables that are not yet instantiated. This is likely a bug in cjc.")
+ERROR(sema_duplicate_implicit_type, "The implicit parameters %s and %s of this function have the same type %s, this makes both of them unusable and is not allowed")
+ERROR(sema_implicit_subtype_relation, "The implicit parameter %s of this function (%s) is a subtype of implicit parameter %s (%s), this makes the latter unusable and is not allowed")
+ERROR(sema_missing_throws_cap, "This function call may throw exception type '%s', which is not caught in the current context")
+ERROR(sema_implicits_cfunc, "Function types used for C FFI cannot have implicit parameters")
+ERROR(sema_incompatible_throws_struct, "Throws struct in the standard library has an incompatible signature. This is likely a bug in cjc unless you have edited its standard library.")
+ERROR(sema_manually_made_throws, "Throws capability may not be created manually and should only be emitted by the compiler")
+ERROR(sema_invalid_implicits_override, "Method override must have an identical list of implicit parameters with the method of the superclass")
+ERROR(sema_main_cannot_have_implicits, "'main' cannot have implicit parameters")
+
 ERROR(sema_diag_end, "")

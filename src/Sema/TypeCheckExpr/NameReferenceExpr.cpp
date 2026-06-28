@@ -512,7 +512,7 @@ void TypeChecker::TypeCheckerImpl::InferCFuncExpr(ASTContext& ctx, RefExpr& re)
     }
     funcType->retType->SetTy(GetTyFromASTType(ctx, funcType->retType.get()));
     Ptr<Ty> retTy = funcType->retType->GetTy();
-    auto resTy = typeManager.GetFunctionTy(std::move(paramTys), retTy, {.isC = true});
+    auto resTy = typeManager.GetFunctionTy(std::move(paramTys), {}, retTy, {.isC = true});
     re.SetTy(resTy);
 }
 

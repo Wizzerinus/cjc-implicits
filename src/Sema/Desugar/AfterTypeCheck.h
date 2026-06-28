@@ -111,6 +111,7 @@ void DesugarAsExpr(TypeManager& typeManager, AsExpr& ae);
 /// Insert Unit if needed. No desugaring requried for if-let expressions.
 void DesugarIfExpr(TypeManager& typeManager, IfExpr& ifExpr);
 void DesugarRangeExpr(TypeManager& typeManager, RangeExpr& re);
+void DesugarImplicitWithExpr(ImplicitWithExpr& iwe);
 void DesugarIntrinsicCallExpr(AST::CallExpr& expr);
 
 /**

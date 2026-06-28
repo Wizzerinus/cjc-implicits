@@ -97,7 +97,7 @@ OwnedPtr<Expr> Utils::CreateOptionSomeRef(Ptr<Ty> ty)
 {
     auto someDeclRef = CreateRefExpr(*GetOptionSomeDecl());
     auto optionActualTy = GetOptionTy(ty);
-    someDeclRef->SetTy(typeManager.GetFunctionTy({ty}, optionActualTy));
+    someDeclRef->SetTy(typeManager.GetFunctionTy({ty}, {}, optionActualTy));
     return someDeclRef;
 }
 
@@ -747,7 +747,7 @@ std::string Utils::GetParamJavaSignature(const Ptr<Ty> ty, std::string fullPacka
 
 std::string Utils::GetJavaTypeSignature(Ty& retTy, const std::vector<Ptr<Ty>>& params, std::string fullPackageName)
 {
-    return GetJavaTypeSignature(*typeManager.GetFunctionTy(params, &retTy), fullPackageName);
+    return GetJavaTypeSignature(*typeManager.GetFunctionTy(params, {}, &retTy), fullPackageName);
 }
 
 OwnedPtr<CallExpr> Utils::CreateZeroValue(Ptr<Ty> ty, File& curFile) const
@@ -997,7 +997,7 @@ OwnedPtr<FuncDecl> Utils::CreateNativeFunc(std::string& name,
     funcBody->curFile = &curFile;
     funcBody->paramLists.emplace_back(CreateFuncParamList(std::move(params)));
 
-    auto funcTy = typeManager.GetFunctionTy(funcTyParams, retTy, {.isC = true});
+    auto funcTy = typeManager.GetFunctionTy(funcTyParams, {}, retTy, {.isC = true});
     auto fdecl = CreateFuncDecl(name, std::move(funcBody), funcTy);
     fdecl->funcBody->funcDecl = fdecl.get();
     fdecl->EnableAttr(Attribute::C);

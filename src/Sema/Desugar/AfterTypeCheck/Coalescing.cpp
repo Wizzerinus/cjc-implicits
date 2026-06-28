@@ -131,7 +131,7 @@ void TypeChecker::TypeCheckerImpl::DesugarForCoalescing(BinaryExpr& binaryExpr) 
     (void)wildBody->body.emplace_back(std::move(binaryExpr.rightExpr));
     wildBody->SetTy(rightTy);
 
-    auto someTy = typeManager.GetFunctionTy({leftTy->typeArgs[0]}, leftTy);
+    auto someTy = typeManager.GetFunctionTy({leftTy->typeArgs[0]}, {}, leftTy);
     auto desugarExpr = ConstructOptionMatch(
         std::move(binaryExpr.leftExpr), std::move(caseBody), std::move(wildBody), refExpr, someTy);
     if (desugarExpr != nullptr) {

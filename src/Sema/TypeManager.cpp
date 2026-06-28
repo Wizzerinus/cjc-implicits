@@ -151,9 +151,9 @@ Ptr<TupleTy> TypeManager::GetTupleTy(const std::vector<Ptr<Ty>>& typeArgs, bool 
     return GetTypeTy<TupleTy>(typeArgs, isClosureTy);
 }
 
-Ptr<FuncTy> TypeManager::GetFunctionTy(const std::vector<Ptr<Ty>>& paramTys, Ptr<Ty> retTy, FuncTy::Config cfg)
+Ptr<FuncTy> TypeManager::GetFunctionTy(const std::vector<Ptr<Ty>>& paramTys, const std::vector<Ptr<Ty>>& implicitParamTys, Ptr<Ty> retTy, FuncTy::Config cfg)
 {
-    return GetTypeTy<FuncTy>(paramTys, retTy, cfg);
+    return GetTypeTy<FuncTy>(paramTys, implicitParamTys, retTy, cfg);
 }
 
 Ptr<Ty> TypeManager::GetIntersectionTy(const std::set<Ptr<Ty>>& tys)
@@ -314,14 +314,17 @@ Ptr<Ty> TypeManager::TyInstantiator::Instantiate(Ty& ty)
         case TypeKind::TYPE_GENERICS:
             return GetInstantiatedGenericTy(StaticCast<GenericsTy>(ty));
         case TypeKind::TYPE_FUNC: {
-            std::vector<Ptr<Ty>> paramTys;
+            std::vector<Ptr<Ty>> paramTys, implicitParamTys;
             auto& funcTy = static_cast<FuncTy&>(ty);
             for (auto& it : funcTy.paramTys) {
                 paramTys.push_back(Instantiate(it));
             }
+            for (auto& it : funcTy.implicitParamTys) {
+                implicitParamTys.push_back(Instantiate(it));
+            }
             auto retType = Instantiate(funcTy.retTy);
             Ptr<Ty> ret = tyMgr.GetFunctionTy(
-                paramTys, retType, {funcTy.IsCFunc(), funcTy.isClosureTy, funcTy.hasVariableLenArg});
+                paramTys, implicitParamTys, retType, {funcTy.IsCFunc(), funcTy.isClosureTy, funcTy.hasVariableLenArg});
             return ret;
         }
         case TypeKind::TYPE_TUPLE: {
@@ -886,7 +889,7 @@ bool TypeManager::IsFuncSubtype(const Ty& leaf, const Ty& root)
     }
     auto& leafFuncType = static_cast<const FuncTy&>(leaf);
     auto& rootFuncType = static_cast<const FuncTy&>(root);
-    if (IsFuncParametersSubtype(leafFuncType, rootFuncType)) {
+    if (IsFuncParametersSubtype(leafFuncType, rootFuncType) && IsFuncParameterTypesIdentical(leafFuncType.implicitParamTys, rootFuncType.implicitParamTys)) {
         bool noCast = leafFuncType.noCast || rootFuncType.noCast;
         return IsSubtype(leafFuncType.retTy, rootFuncType.retTy, noCast);
     }
@@ -896,13 +899,17 @@ bool TypeManager::IsFuncSubtype(const Ty& leaf, const Ty& root)
 bool TypeManager::IsFuncParametersSubtype(const FuncTy& leaf, const FuncTy& root)
 {
     bool noCast = leaf.noCast || root.noCast;
-    if (leaf.paramTys.size() == root.paramTys.size()) {
+    if (leaf.paramTys.size() == root.paramTys.size() && leaf.implicitParamTys.size() == root.implicitParamTys.size()) {
         bool result = true;
         for (size_t i = 0; i < leaf.paramTys.size(); i++) {
             result = result && IsSubtype(root.paramTys[i], leaf.paramTys[i], noCast);
             if (!result) {
                 return false;
             }
+        }
+        // We must be invariant in implicit types.
+        for (size_t i = 0; i < leaf.implicitParamTys.size(); i++) {
+            result = result && IsTyEqual(root.implicitParamTys[i], leaf.implicitParamTys[i]);
         }
         result = result && leaf.isC == root.isC;
         result = result && leaf.hasVariableLenArg == root.hasVariableLenArg;
@@ -1972,7 +1979,10 @@ bool TypeManager::IsFuncDeclSubType(const AST::FuncDecl& decl, const AST::FuncDe
 
 bool TypeManager::IsFuncTySubType(const AST::FuncTy& type1, const AST::FuncTy& type2)
 {
-    return IsFuncParameterTypesIdentical(type1.paramTys, type2.paramTys) && IsSubtype(type1.retTy, type2.retTy);
+    // Why does this even not check variance on ordinary parameters???
+    return IsFuncParameterTypesIdentical(type1.paramTys, type2.paramTys) &&
+           IsFuncParameterTypesIdentical(type1.implicitParamTys, type2.implicitParamTys) &&
+           IsSubtype(type1.retTy, type2.retTy);
 }
 #endif
 
@@ -2377,12 +2387,15 @@ Ptr<Ty> TypeManager::ReplaceThisTy(Ptr<Ty> now)
     switch (now->kind) {
         case TypeKind::TYPE_FUNC: {
             auto& funcTy = static_cast<FuncTy&>(*now);
-            std::vector<Ptr<Ty>> paramTys;
+            std::vector<Ptr<Ty>> paramTys, implicitParamTys;
             for (auto& p : funcTy.paramTys) {
                 paramTys.push_back(ReplaceThisTy(p));
             }
+            for (auto& p : funcTy.implicitParamTys) {
+                implicitParamTys.push_back(ReplaceThisTy(p));
+            }
             auto retTy = ReplaceThisTy(funcTy.retTy);
-            return GetFunctionTy(paramTys, retTy, {funcTy.IsCFunc(), funcTy.isClosureTy, funcTy.hasVariableLenArg});
+            return GetFunctionTy(paramTys, implicitParamTys, retTy, {funcTy.IsCFunc(), funcTy.isClosureTy, funcTy.hasVariableLenArg});
         }
         case TypeKind::TYPE_TUPLE:
             return GetTupleTy(newArgs, static_cast<TupleTy&>(*now).isClosureTy);
@@ -2431,7 +2444,8 @@ Ptr<Ty> TypeManager::SubstituteTypeArgs(Ptr<Ty> baseTy, std::vector<Ptr<Ty>>& ty
             auto returnTy = typeArgs.back();
             typeArgs.pop_back();
             auto funcTy = StaticCast<FuncTy>(baseTy);
-            return GetFunctionTy(typeArgs, returnTy, {funcTy->isC, false, funcTy->hasVariableLenArg});
+            return GetFunctionTy(
+                typeArgs, funcTy->implicitParamTys, returnTy, {funcTy->isC, false, funcTy->hasVariableLenArg});
         }
         case TypeKind::TYPE: {
             return baseTy;
@@ -2535,7 +2549,7 @@ Ptr<Ty> TypeManager::ObtainsAliasType(Ptr<const Node> node)
                 params.emplace_back(ObtainsAliasType(param.get()));
             }
             auto retTy = ObtainsAliasType(ft->retType.get());
-            ret = GetFunctionTy(params, retTy, {ft->isC, false, fTy->hasVariableLenArg});
+            ret = GetFunctionTy(params, fTy->implicitParamTys, retTy, {ft->isC, false, fTy->hasVariableLenArg});
             break;
         }
         case ASTKind::TUPLE_TYPE: {
@@ -2636,7 +2650,14 @@ Ptr<AST::Ty> TypeManager::SubstituteTypeAliasInTy(AST::Ty& ty, bool needSubstitu
             auto returnTy = typeArgs.back();
             typeArgs.pop_back();
             auto& funcTy = static_cast<FuncTy&>(ty);
-            return GetFunctionTy(typeArgs, returnTy, {funcTy.isC, false, funcTy.hasVariableLenArg});
+            std::vector<Ptr<Ty>> normals;
+            for (size_t i = 0; i < funcTy.paramTys.size(); i++) {
+                normals.emplace_back(typeArgs.back());
+                typeArgs.pop_back();
+            }
+            std::reverse(normals.begin(), normals.end());
+            return GetFunctionTy(
+                normals, typeArgs, returnTy, {funcTy.isC, false, funcTy.hasVariableLenArg});
         }
         case TypeKind::TYPE: {
             return GetUnaliasedTypeFromTypeAlias(

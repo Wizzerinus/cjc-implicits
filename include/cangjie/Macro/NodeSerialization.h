@@ -41,6 +41,7 @@ using AstMacroExpandDecl = Ptr<const Cangjie::AST::MacroExpandDecl>;
 using AstFuncArg = Ptr<const Cangjie::AST::FuncArg>;
 using AstFuncBody = Ptr<const Cangjie::AST::FuncBody>;
 using AstFuncParam = Ptr<const Cangjie::AST::FuncParam>;
+using AstFuncParamList = Ptr<const Cangjie::AST::FuncParamList>;
 using AstMacroExpandParam = Ptr<const Cangjie::AST::MacroExpandParam>;
 using AstBlock = Ptr<const Cangjie::AST::Block>;
 using AstStructBody = Ptr<const Cangjie::AST::StructBody>;
@@ -145,6 +146,7 @@ private:
     flatbuffers::Offset<NodeFormat::Expr> SerializePrimitiveTypeExpr(AstExpr expr);
     flatbuffers::Offset<NodeFormat::Expr> SerializeSpawnExpr(AstExpr expr);
     flatbuffers::Offset<NodeFormat::Expr> SerializeSynchronizedExpr(AstExpr expr);
+    flatbuffers::Offset<NodeFormat::Expr> SerializeImplicitWithExpr(AstExpr expr);
     flatbuffers::Offset<NodeFormat::Expr> SerializeArrayLit(AstExpr expr);
     flatbuffers::Offset<NodeFormat::Expr> SerializeTupleLit(AstExpr expr);
     flatbuffers::Offset<NodeFormat::Expr> SerializeSubscriptExpr(AstExpr expr);
@@ -203,6 +205,7 @@ private:
     flatbuffers::Offset<NodeFormat::Decl> SerializeDeclOfMacroExpandParam(const AST::Decl* decl); 
     flatbuffers::Offset<NodeFormat::FuncBody> SerializeFuncBody(AstFuncBody funcBody);
     flatbuffers::Offset<NodeFormat::FuncParam> SerializeFuncParam(AstFuncParam funcParam);
+    flatbuffers::Offset<NodeFormat::FuncParamList> SerializeFuncParamList(AstFuncParamList funcParam);
     flatbuffers::Offset<NodeFormat::FuncParam> SerializeMacroExpandParam(AstMacroExpandParam mep);
     flatbuffers::Offset<NodeFormat::StructBody> SerializeStructBody(AstStructBody structBody);
     flatbuffers::Offset<NodeFormat::InterfaceBody> SerializeInterfaceBody(AstInterfaceBody interfaceBody);

@@ -262,3 +262,19 @@ Symbol* ScopeManager::GetCurSymbolByKind(
     }
     return GetCurSatisfiedSymbolUntilTopLevel(ctx, scopeName, finder);
 }
+
+void ScopeManager::EnterImplicitScope(ASTContext& ctx, ImplicitScope&& scopeDef)
+{
+    ctx.implicitScopes.push_back(std::move(scopeDef));
+}
+
+void ScopeManager::ExitImplicitScope(ASTContext& ctx)
+{
+    ctx.implicitScopes.pop_back();
+}
+
+const std::vector<ImplicitScope>& ScopeManager::FetchImplicitScopes(const ASTContext& ctx)
+{
+    return ctx.implicitScopes;
+}
+

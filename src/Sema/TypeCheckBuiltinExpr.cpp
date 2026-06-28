@@ -182,7 +182,7 @@ bool TypeChecker::TypeCheckerImpl::ChkSizedArrayElement(ASTContext& ctx, Ty& ele
     PData::Reset(typeManager.constraints);
     // For new array constructor, Array<T>(size, element: (Int64)->T).
     auto sizeType = TypeManager::GetPrimitiveTy(TypeKind::TYPE_INT64);
-    auto expectedExprTy = typeManager.GetFunctionTy({sizeType}, &elemTargetTy);
+    auto expectedExprTy = typeManager.GetFunctionTy({sizeType}, {}, &elemTargetTy);
     if (Check(ctx, expectedExprTy, ae.args[1].get())) {
         return true;
     }
@@ -231,7 +231,7 @@ bool TypeChecker::TypeCheckerImpl::ChkSizedArrayWithoutElemTy(ASTContext& ctx, T
     }
     // Target type is given, check with expression.
     auto elementTy = GetArrayElementTy(typeManager, static_cast<ArrayTy&>(target));
-    auto expectedExprTy = isArgLambda ? typeManager.GetFunctionTy({sizeType}, elementTy) : elementTy;
+    auto expectedExprTy = isArgLambda ? typeManager.GetFunctionTy({sizeType}, {}, elementTy) : elementTy;
     if (!Check(ctx, expectedExprTy, ae.args[1].get())) {
         diag.Diagnose(*ae.args[1], DiagKind::sema_array_element_type_error);
         return false;
@@ -379,7 +379,7 @@ bool TypeChecker::TypeCheckerImpl::ChkVArrayArg(ASTContext& ctx, ArrayExpr& ve)
     if (ve.args[0]->name.Empty()) {
         // For Lambda.
         auto sizeType = TypeManager::GetPrimitiveTy(TypeKind::TYPE_INT64);
-        auto expectedExprTy = typeManager.GetFunctionTy({sizeType}, ve.type->GetTy()->typeArgs[0]);
+        auto expectedExprTy = typeManager.GetFunctionTy({sizeType}, {}, ve.type->GetTy()->typeArgs[0]);
         ret = Check(ctx, expectedExprTy, ve.args[0].get());
     } else {
         if (ve.args[0]->name != "repeat") {

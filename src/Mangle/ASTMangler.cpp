@@ -64,6 +64,12 @@ static std::string MangleFuncTypeAnnotation(const AST::Type& type)
     for (auto& it : funcTyAnno.paramTypes) {
         mangledName += MangleType(*it);
     }
+    if (funcTyAnno.usingType.has_value()) {
+        mangledName += MANGLE_IMPLICIT_PREFIX;
+        for (auto& it : funcTyAnno.usingType.value()->paramTypes) {
+            mangledName += MangleType(*it);
+        }
+    }
     return mangledName;
 }
 
@@ -341,6 +347,10 @@ private:
             if (funcDecl->TestAttr(Attribute::CONSTRUCTOR) && funcDecl->TestAttr(Attribute::STATIC)) {
                 constexpr ssize_t initNameAndEnd = 8; // length of "6<init>F"
                 mangled.replace(mangled.size() - initNameAndEnd, initNameAndEnd, MangleUtils::MangleName("<clinit>"));
+            }
+            if (funcDecl->funcBody->implicitParamList.has_value()) {
+                mangled += MANGLE_IMPLICIT_PREFIX;
+                MangleFuncParameters(funcDecl->funcBody->implicitParamList.value()->params);
             }
             mangled += MANGLE_DIDOLLAR_PREFIX;
             if (auto& retType = funcDecl->funcBody->retType) {

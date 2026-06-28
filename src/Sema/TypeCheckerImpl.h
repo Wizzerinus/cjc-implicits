@@ -147,6 +147,10 @@ public:
      * Perform auto boxing and recursive type resolving of enum.
      */
     void PerformDesugarAfterInstantiation(ASTContext& ctx, AST::Package& pkg);
+    /**
+     * Update types and calls to replace implicits with explicits.
+     */
+    void PerformDesugarAfterCjo(AST::Package& pkg);
 
     // Parse package config file and storage to corresponding pkg.
     void ParsePackageConfigFile(Ptr<AST::Package>& pkg, InteropCJPackageConfigReader packagesFullConfig);
@@ -173,6 +177,7 @@ private:
      */
     Ptr<AST::Ty> Synthesize(const CheckerContext& ctx, Ptr<AST::Node> node);
     bool SynthesizeAndReplaceIdealTy(const CheckerContext& ctx, AST::Node& node);
+    bool SynthesizeTryCatch(const CheckerContext& ctx, AST::TryExpr& te);
     /**
      * Main entry of the check mode of the type checking.
      */
@@ -746,7 +751,7 @@ private:
     bool ChkLamExpr(ASTContext& ctx, AST::Ty& target, AST::LambdaExpr& le);
     bool ChkLamParamTys(ASTContext& ctx, AST::LambdaExpr& le, const std::vector<Ptr<AST::Ty>>& tgtParamTys,
         std::vector<Ptr<AST::Ty>>& lamParamTys);
-    bool ChkLamBody(ASTContext& ctx, AST::FuncBody& lamFb);
+    bool ChkLamBody(ASTContext& ctx, AST::Ty& targetTy, AST::FuncBody& lamFb);
     Ptr<AST::Ty> SynIfExpr(const CheckerContext& ctx, AST::IfExpr& ie);
     bool ChkIfExpr(ASTContext& ctx, AST::Ty& tgtTy, AST::IfExpr& ie);
     bool ChkIfExprNoElse(ASTContext& ctx, AST::Ty& target, AST::IfExpr& ie);
@@ -769,6 +774,10 @@ private:
     bool ChkTryExpr(ASTContext& ctx, AST::Ty& tgtTy, AST::TryExpr& te);
     bool ChkTryExprCatchesAndHandles(ASTContext& ctx, AST::Ty& tgtTy, AST::TryExpr& te);
     bool ChkTryExprCatchPatterns(ASTContext& ctx, AST::TryExpr& te);
+    // We need to distinguish between empty and missing
+    // Empty vector = try/finally block, no catch expressions
+    // Missing value = patterns are typed incorrectly
+    std::optional<std::vector<Ptr<AST::Ty>>> GenerateTryExprCaughtTypes(ASTContext& ctx, AST::TryExpr& te);
     bool ChkTryExprHandlePatterns(ASTContext& ctx, AST::TryExpr& te);
     bool ChkHandler(ASTContext& ctx, AST::Handler& handler, AST::Ty& tgtTy);
     bool ValidateBlockInTryHandle(AST::Block& block);
@@ -882,6 +891,9 @@ private:
     Ptr<AST::Ty> SynTrailingClosure(ASTContext& ctx, AST::TrailingClosureExpr& tc);
     bool ChkTrailingClosureExpr(ASTContext& ctx, AST::Ty& target, AST::TrailingClosureExpr& tc);
     void CheckMacroCall(ASTContext& ctx, AST::Node& macroNode);
+    Ptr<AST::Ty> SynImplicitWithExpr(ASTContext& ctx, AST::ImplicitWithExpr& iwe);
+    bool ChkImplicitWithExpr(ASTContext& ctx, AST::Ty& target, AST::ImplicitWithExpr& iwe);
+    void EnsureImplicitDeclarations(ASTContext& ctx, AST::ImplicitWithExpr& iwe);
 
     /**
      * Check call expressions' related APIs.
@@ -1097,6 +1109,7 @@ private:
     bool IsGenericCall(const ASTContext& ctx, const AST::CallExpr& ce, const AST::FuncDecl& fd) const;
     bool CheckArgsWithParamName(const AST::CallExpr& ce, const AST::FuncDecl& fd);
     bool PostCheckCallExpr(const ASTContext& ctx, AST::CallExpr& ce, AST::FuncDecl& func, const SubstPack& typeMapping);
+    bool ValidateImplicitContext(const ASTContext& ctx, AST::CallExpr& ce, Ptr<AST::Ty> funcTy, const std::optional<SubstPack>& typeMapping);
     void PostProcessForLSP(AST::CallExpr& ce, const std::vector<Ptr<AST::FuncDecl>>& result) const;
     void CheckUnsafeInvoke(const AST::CallExpr& ce);
     void CheckToTokensImpCallExpr(const AST::CallExpr& ce);
@@ -1259,6 +1272,7 @@ private:
     void CheckCFuncType(ASTContext& ctx, const AST::RefType& rt);
     void CheckTupleType(ASTContext& ctx, AST::TupleType& tt);
     void CheckFuncType(ASTContext& ctx, AST::FuncType& ft);
+    bool CheckTypesAreDistinct(const AST::Node& node, const std::vector<Ptr<AST::Ty>>& types);
     void CheckOptionType(ASTContext& ctx, const AST::OptionType& ot);
     void CheckVArrayType(ASTContext& ctx, const AST::VArrayType& vt);
     std::tuple<bool, std::string> CheckVArrayWithRefType(AST::Ty& ty, std::unordered_set<Ptr<AST::Ty>>& traversedTy);
@@ -1302,6 +1316,9 @@ private:
     Ptr<AST::Ty> CalcFuncRetTyFromBody(const AST::FuncBody& fb);
     void ReplaceFuncRetTyWithThis(AST::FuncBody& fb, Ptr<AST::Ty> ty);
     void CheckCtorFuncBody(ASTContext& ctx, AST::FuncBody& fb);
+    bool EnterImplicitScopeForFuncBody(ASTContext& ctx, AST::FuncBody& fb);
+    Ptr<AST::Ty> SynthesizeWithUsing(const CheckerContext& ctx, AST::FuncBody& fb);
+    bool CheckWithUsing(ASTContext& ctx, Ptr<AST::Ty> target, AST::FuncBody& fb);
     bool CheckReturnThisInFuncBody(const AST::FuncBody& fb) const;
     /**
      * If a constructor contains super-calling or init-calling in its body, the

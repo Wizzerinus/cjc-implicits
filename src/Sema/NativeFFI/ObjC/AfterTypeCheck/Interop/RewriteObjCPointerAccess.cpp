@@ -71,7 +71,7 @@ void HandleObjCPointerRead(InteropContext& ctx, CallExpr& callExpr)
     CJC_NULLPTR_CHECK(readPointerFunc);
     auto readPointerRef = CreateRefExpr(*readPointerFunc, callExpr);
     readPointerRef->instTys.push_back(rawCType);
-    readPointerRef->SetTy(ctx.typeManager.GetFunctionTy(std::vector{pointerType, int64Type}, rawCType));
+    readPointerRef->SetTy(ctx.typeManager.GetFunctionTy(std::vector{pointerType, int64Type}, {}, rawCType));
 
     auto ptrExpr = ctx.factory.CreateUnsafePointerCast(
         CreateMemberAccess(std::move(receiver), *ptrFieldDecl),
@@ -130,7 +130,7 @@ void HandleObjCPointerWrite(InteropContext& ctx, CallExpr& callExpr)
     CJC_NULLPTR_CHECK(writePointerFunc);
     auto writePointerRef = CreateRefExpr(*writePointerFunc, callExpr);
     writePointerRef->instTys.push_back(rawCType);
-    writePointerRef->SetTy(ctx.typeManager.GetFunctionTy({pointerType, int64Type, rawCType}, unitType));
+    writePointerRef->SetTy(ctx.typeManager.GetFunctionTy({pointerType, int64Type, rawCType}, {}, unitType));
 
     auto ptrExpr = ctx.factory.CreateUnsafePointerCast(
         CreateMemberAccess(std::move(receiver), *ptrFieldDecl),

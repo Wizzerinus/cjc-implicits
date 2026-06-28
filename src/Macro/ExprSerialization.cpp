@@ -397,6 +397,23 @@ flatbuffers::Offset<NodeFormat::Expr> NodeWriter::SerializeSynchronizedExpr(AstE
         builder, fbNodeBase, NodeFormat::AnyExpr_SYNCHRONIZED_EXPR, fbSynchronizedExpr.Union());
 }
 
+flatbuffers::Offset<NodeFormat::Expr> NodeWriter::SerializeImplicitWithExpr(AstExpr expr)
+{
+    auto implicitWithExpr = RawStaticCast<const ImplicitWithExpr*>(expr);
+    auto fbNodeBase = SerializeNodeBase(implicitWithExpr);
+    auto withPos = FlatPosCreateHelper(implicitWithExpr->withPos);
+    auto leftParenPos = FlatPosCreateHelper(implicitWithExpr->leftParenPos);
+    auto childExs =
+        FlatVectorCreateHelper<NodeFormat::Expr, Expr, AstExpr>(implicitWithExpr->children, &NodeWriter::SerializeExpr);
+    auto rightParenPos = FlatPosCreateHelper(implicitWithExpr->rightParenPos);
+    auto body = SerializeBlock(implicitWithExpr->body.get());
+    auto commaPositions = CreatePositionVector(implicitWithExpr->commaPosVector);
+    auto fbImplicitWithExpr = NodeFormat::CreateImplicitWithExpr(
+        builder, fbNodeBase, &withPos, &leftParenPos, childExs, commaPositions, &rightParenPos, body);
+    return NodeFormat::CreateExpr(
+        builder, fbNodeBase, NodeFormat::AnyExpr_IMPLICIT_WITH_EXPR, fbImplicitWithExpr.Union());
+}
+
 flatbuffers::Offset<NodeFormat::Expr> NodeWriter::SerializeTrailingClosureExpr(AstExpr expr)
 {
     auto type = NodeFormat::AnyExpr_TRAILING_CLOSURE_EXPR;
@@ -674,6 +691,8 @@ flatbuffers::Offset<NodeFormat::Expr> NodeWriter::SerializeExpr(AstExpr expr)
             {ASTKind::SPAWN_EXPR, [](NodeWriter& nw, AstExpr expr) { return nw.SerializeSpawnExpr(expr); }},
             {ASTKind::SYNCHRONIZED_EXPR,
                 [](NodeWriter& nw, AstExpr expr) { return nw.SerializeSynchronizedExpr(expr); }},
+            {ASTKind::IMPLICIT_WITH_EXPR,
+                [](NodeWriter& nw, AstExpr expr) { return nw.SerializeImplicitWithExpr(expr); }},
             {ASTKind::OPTIONAL_EXPR, [](NodeWriter& nw, AstExpr expr) { return nw.SerializeOptionalExpr(expr); }},
             {ASTKind::OPTIONAL_CHAIN_EXPR,
                 [](NodeWriter& nw, AstExpr expr) { return nw.SerializeOptionalChainExpr(expr); }},

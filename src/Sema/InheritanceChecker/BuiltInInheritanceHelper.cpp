@@ -74,7 +74,7 @@ void StructInheritanceChecker::CreateBuiltInUnaryOperatorFunc(TokenKind op, Exte
     fd->fullPackageName = ed.fullPackageName;
     fd->op = op;
     fd->identifier = SrcIdentifier{TOKENS[static_cast<int>(op)]};
-    fd->SetTy(typeManager.GetFunctionTy({}, returnTy));
+    fd->SetTy(typeManager.GetFunctionTy({}, {}, returnTy));
     fd->outerDecl = &ed;
 
     auto funcBody = MakeOwnedNode<FuncBody>();
@@ -125,7 +125,7 @@ void StructInheritanceChecker::CreateBuiltInBinaryOperatorFunc(
     fd->fullPackageName = ed.fullPackageName;
     fd->op = op;
     fd->identifier = SrcIdentifier{TOKENS[static_cast<int>(op)]};
-    fd->SetTy(typeManager.GetFunctionTy({rightTy}, retTy));
+    fd->SetTy(typeManager.GetFunctionTy({rightTy}, {}, retTy));
     fd->outerDecl = &ed;
 
     auto funcBody = MakeOwnedNode<FuncBody>();

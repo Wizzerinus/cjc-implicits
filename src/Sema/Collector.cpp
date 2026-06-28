@@ -332,6 +332,9 @@ void Collector::CollectFuncBody(ASTContext& ctx, FuncBody& fb, bool buildTrie)
     for (auto& funcParamList : fb.paramLists) {
         BuildSymbolTable(ctx, funcParamList.get(), buildTrie);
     }
+    if (fb.implicitParamList.has_value()) {
+        BuildSymbolTable(ctx, fb.implicitParamList.value().get(), buildTrie);
+    }
     BuildSymbolTable(ctx, fb.retType.get(), buildTrie);
     if (fb.body != nullptr) {
         for (auto& n : fb.body->body) {
@@ -660,7 +663,7 @@ void Collector::BuildSymbolTable(ASTContext& ctx, Ptr<Node> node, bool buildTrie
     }
     // For-In expr and Synchronized expr need to be collected in new scope, and will be processed later.
     if (auto expr = DynamicCast<Expr*>(node);
-        expr && expr->astKind != ASTKind::FOR_IN_EXPR && expr->astKind != ASTKind::SYNCHRONIZED_EXPR) {
+        expr && expr->astKind != ASTKind::FOR_IN_EXPR && expr->astKind != ASTKind::SYNCHRONIZED_EXPR && expr->astKind != ASTKind::IMPLICIT_WITH_EXPR) {
         BuildSymbolTable(ctx, expr->desugarExpr.get(), buildTrie);
     }
     switch (node->astKind) {
@@ -1169,6 +1172,21 @@ void Collector::BuildSymbolTable(ASTContext& ctx, Ptr<Node> node, bool buildTrie
             scopeManager.FinalizeScope(ctx);
             break;
         }
+        case ASTKind::IMPLICIT_WITH_EXPR: {
+            auto iwe = StaticAs<ASTKind::IMPLICIT_WITH_EXPR>(node);
+            auto nodeInfo = NodeInfo(*iwe, "", ctx.currentScopeLevel, scopeManager.CalcScopeGateName(ctx));
+            AddSymbol(ctx, nodeInfo, buildTrie);
+            scopeManager.InitializeScope(ctx);
+            for (auto& child : iwe->children) {
+                BuildSymbolTable(ctx, child.get(), buildTrie);
+            }
+            for (auto& child : iwe->synthesizedDecls) {
+                BuildSymbolTable(ctx, child.get(), buildTrie);
+            }
+            BuildSymbolTable(ctx, iwe->body.get(), buildTrie);
+            scopeManager.FinalizeScope(ctx);
+            break;
+        }
         case ASTKind::IS_EXPR: {
             auto ie = StaticAs<ASTKind::IS_EXPR>(node);
             auto nodeInfo = NodeInfo(*ie, "", ctx.currentScopeLevel, ctx.currentScopeName);
@@ -1309,6 +1327,11 @@ void Collector::BuildSymbolTable(ASTContext& ctx, Ptr<Node> node, bool buildTrie
             AddSymbol(ctx, nodeInfo, buildTrie);
             for (auto& paramType : ft->paramTypes) {
                 BuildSymbolTable(ctx, paramType.get(), buildTrie);
+            }
+            if (ft->usingType.has_value()) {
+                for (auto& paramType : ft->usingType.value()->paramTypes) {
+                    BuildSymbolTable(ctx, paramType.get(), buildTrie);
+                }
             }
             BuildSymbolTable(ctx, ft->retType.get(), buildTrie);
             break;

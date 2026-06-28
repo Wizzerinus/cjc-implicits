@@ -83,6 +83,11 @@ public:
 
     static AST::Symbol* GetCurOuterDeclOfScopeLevelX(
         const ASTContext& ctx, const AST::Node& checkNode, uint32_t scopeLevel);
+    
+    // Implicits
+    void EnterImplicitScope(ASTContext& ctx, ImplicitScope&& scopeDef);
+    void ExitImplicitScope(ASTContext& ctx);
+    const std::vector<ImplicitScope>& FetchImplicitScopes(const ASTContext& ctx);
 
     void Reset()
     {

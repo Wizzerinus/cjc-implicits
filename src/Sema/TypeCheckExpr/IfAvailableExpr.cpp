@@ -178,7 +178,7 @@ Ptr<Ty> TypeChecker::TypeCheckerImpl::SynIfAvailableExpr(ASTContext& ctx, IfAvai
         state.res = false;
         state.hasHardError = true;
     }
-    auto targetTy = typeManager.GetFunctionTy({}, typeManager.GetPrimitiveTy(TypeKind::TYPE_UNIT));
+    auto targetTy = typeManager.GetFunctionTy({}, {}, typeManager.GetPrimitiveTy(TypeKind::TYPE_UNIT));
     state.res = Check(ctx, targetTy, iae.GetLambda1()) && state.res;
     state.res = Check(ctx, targetTy, iae.GetLambda2()) && state.res;
     if (!state.res) {

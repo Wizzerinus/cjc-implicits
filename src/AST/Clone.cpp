@@ -385,6 +385,18 @@ OwnedPtr<OptionType> ASTCloner::CloneOptionType(const OptionType& node, const Vi
     return ret;
 }
 
+OwnedPtr<FuncTypeUsing> ASTCloner::CloneFuncTypeUsing(const FuncTypeUsing& node, const VisitFunc& visitor)
+{
+    auto ret = MakeOwned<FuncTypeUsing>();
+    ret->usingPos = node.usingPos;
+    ret->leftParenPos = node.leftParenPos;
+    ret->rightParenPos = node.rightParenPos;
+    for (auto& paramType : node.paramTypes) {
+        ret->paramTypes.emplace_back(CloneType(paramType.get(), visitor));
+    }
+    return ret;
+}
+
 OwnedPtr<FuncType> ASTCloner::CloneFuncType(const FuncType& node, const VisitFunc& visitor)
 {
     auto ret = MakeOwned<FuncType>();
@@ -396,6 +408,9 @@ OwnedPtr<FuncType> ASTCloner::CloneFuncType(const FuncType& node, const VisitFun
     ret->leftParenPos = node.leftParenPos;
     ret->rightParenPos = node.rightParenPos;
     ret->arrowPos = node.arrowPos;
+    ret->usingType = !node.usingType.has_value()
+        ? std::optional<OwnedPtr<FuncTypeUsing>>{}
+        : CloneFuncTypeUsing(*node.usingType.value(), visitor);
     return ret;
 }
 
@@ -731,6 +746,11 @@ OwnedPtr<CallExpr> ASTCloner::CloneCallExpr(const CallExpr& ce, const VisitFunc&
             expr->desugarArgs.value().push_back(cloneTable[it]);
         }
     }
+    expr->implicitlyAssignedArgs = std::vector<OwnedPtr<FuncArg>>();
+    for (auto& it : ce.implicitlyAssignedArgs) {
+        expr->implicitlyAssignedArgs.push_back(CloneNode(it.get(), visitor));
+    }
+
     expr->rightParenPos = ce.rightParenPos;
     expr->resolvedFunction = ce.resolvedFunction;
     expr->callKind = ce.callKind;
@@ -945,6 +965,25 @@ OwnedPtr<SynchronizedExpr> ASTCloner::CloneSynchronizedExpr(const SynchronizedEx
     return expr;
 }
 
+OwnedPtr<ImplicitWithExpr> ASTCloner::CloneImplicitWithExpr(const ImplicitWithExpr& iwe, const VisitFunc& visitor)
+{
+    auto expr = MakeOwned<ImplicitWithExpr>();
+    for (auto& child : iwe.children) {
+        expr->children.push_back(CloneExpr(child.get(), visitor));
+    }
+    for (auto& syn : iwe.synthesizedDecls) {
+        expr->synthesizedDecls.push_back(CloneDecl(syn.get(), visitor));
+    }
+    expr->body = CloneExpr(iwe.body.get(), visitor);
+    expr->withPos = iwe.withPos;
+    expr->leftParenPos = iwe.leftParenPos;
+    expr->rightParenPos = iwe.rightParenPos;
+    for (auto pos : iwe.commaPosVector) {
+        expr->commaPosVector.push_back(pos);
+    }
+    return expr;
+}
+
 OwnedPtr<InvalidExpr> ASTCloner::CloneInvalidExpr(const InvalidExpr& ie)
 {
     auto expr = MakeOwned<InvalidExpr>(ie.begin);
@@ -1066,6 +1105,7 @@ template <typename ExprT> OwnedPtr<ExprT> ASTCloner::CloneExpr(Ptr<ExprT> expr, 
         [&visitor](const TypeConvExpr& e) { return OwnedPtr<Expr>(CloneTypeConvExpr(e, visitor)); },
         [&visitor](const SpawnExpr& se) { return OwnedPtr<Expr>(CloneSpawnExpr(se, visitor)); },
         [&visitor](const SynchronizedExpr& se) { return OwnedPtr<Expr>(CloneSynchronizedExpr(se, visitor)); },
+        [&visitor](const ImplicitWithExpr& iwe) { return OwnedPtr<Expr>(CloneImplicitWithExpr(iwe, visitor)); },
         [](const InvalidExpr& ie) { return OwnedPtr<Expr>(CloneInvalidExpr(ie)); },
         [&visitor](const Block& b) { return OwnedPtr<Expr>(CloneBlock(b, visitor)); },
         [&visitor](const InterpolationExpr& ie) { return OwnedPtr<Expr>(CloneInterpolationExpr(ie, visitor)); },
@@ -1374,6 +1414,10 @@ OwnedPtr<FuncBody> ASTCloner::CloneFuncBody(const FuncBody& fb, const VisitFunc&
     for (auto& it : fb.paramLists) {
         ret->paramLists.push_back(CloneNode(it.get(), visitor));
     }
+    if (fb.implicitParamList.has_value()) {
+        ret->implicitParamList = CloneNode(fb.implicitParamList.value().get(), visitor);
+    }
+    ret->usingPos = fb.usingPos;
     ret->doubleArrowPos = fb.doubleArrowPos;
     ret->colonPos = fb.colonPos;
     ret->retType = CloneType(fb.retType.get(), visitor);

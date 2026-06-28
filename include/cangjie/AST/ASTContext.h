@@ -70,6 +70,16 @@ using Names = std::pair<std::string, std::string>;
 // ty var -> upperbound -> AST nodes of generic constraints
 using GCBlames = std::map<Ptr<AST::Ty>, std::map<Ptr<AST::Ty>, std::set<Ptr<const AST::Node>>>>;
 
+// For implicits
+struct ImplicitValue {
+    Ptr<AST::Ty> type;
+    Ptr<AST::Decl> valueDecl;
+};
+
+struct ImplicitScope {
+    std::vector<ImplicitValue> items;
+};
+
 /** AST Context for sema and codegen. */
 class ASTContext {
 public:
@@ -187,6 +197,18 @@ public:
      *  In case some of the func's generic args can't be solved, placeholders for these generic args will
      *  be propagated, and no new ones will need to be created. */
     std::unordered_set<Ptr<const AST::LambdaExpr>> funcArgReachable;
+
+    /** Implicit scopes form a standard telescope.
+     *  When resolving variables from an implicit scope, it is expected that only one visible variable
+     *  is assignable to the target type. If there's multiple assignable ones in the same scope,
+     *  or no assignable implicit anywhere, it's an error.
+     *  Push to this list when entering a with{} block or a function with a nontrivial using().
+     *
+     *  This is not a stack (even though we often use it as a stack) due to the main operation being
+     *  iterating back-to-front without removing anything.
+     */
+     std::vector<ImplicitScope> implicitScopes;
+
 
 private:
     /** Mapping from VarDecl to the outer VarWithPatternDecl, helps for finding the initializer. */

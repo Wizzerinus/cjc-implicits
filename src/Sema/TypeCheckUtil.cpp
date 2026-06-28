@@ -263,6 +263,21 @@ std::vector<Ptr<Ty>> GetFuncBodyParamTys(const FuncBody& fb)
     return ret;
 }
 
+std::vector<Ptr<Ty>> GetFuncBodyImplicitParamTys(const FuncBody& fb)
+{
+    if (!fb.implicitParamList.has_value()) {
+        return {};
+    }
+    std::vector<Ptr<Ty>> ret;
+    for (auto& param : fb.implicitParamList.value()->params) {
+        if (param->type) {
+            param->SetTy(param->type->GetTy());
+        }
+        ret.emplace_back(param->GetTy() ? param->GetTy() : TypeManager::GetInvalidTy());
+    }
+    return ret;
+}
+
 // Generate type mapping for src is an override or implement of target.
 MultiTypeSubst GenerateTypeMappingBetweenFuncs(TypeManager& typeManager, const FuncDecl& src, const FuncDecl& target)
 {
@@ -1358,7 +1373,7 @@ Ptr<FuncDecl> GenerateGetTypeForTypeParamIntrinsic(Package& pkg, TypeManager& ty
 {
     auto file = pkg.files[0].get();
     auto retTy = typeManager.GetCStringTy();
-    auto funcTy = typeManager.GetFunctionTy({}, retTy);
+    auto funcTy = typeManager.GetFunctionTy({}, {}, retTy);
     auto decl = MakeOwned<FuncDecl>();
     auto funcBody = MakeOwned<FuncBody>();
     funcBody->paramLists.emplace_back(CreateFuncParamList(std::vector<OwnedPtr<FuncParam>>{}));
@@ -1391,7 +1406,7 @@ Ptr<FuncDecl> GenerateIsSubtypeTypesIntrinsic(Package& pkg, TypeManager& typeMan
 {
     auto file = pkg.files[0].get();
     auto retTy = TypeManager::GetPrimitiveTy(TypeKind::TYPE_BOOLEAN);
-    auto funcTy = typeManager.GetFunctionTy({}, retTy);
+    auto funcTy = typeManager.GetFunctionTy({}, {}, retTy);
     auto decl = MakeOwned<FuncDecl>();
     auto funcBody = MakeOwned<FuncBody>();
     funcBody->paramLists.emplace_back(CreateFuncParamList(std::vector<OwnedPtr<FuncParam>>{}));

@@ -82,7 +82,9 @@ void TypeChecker::TypeCheckerImpl::CheckFuncDecl(ASTContext& ctx, FuncDecl& fd)
         // NOTE: Error's for synthesized quest ty must be reported in 'CheckBodyRetType',
         // otherwise it means funcBody contains broken nodes.
         // Update return type to invalid, keep 'fd''s type in funcTy format.
-        fd.SetTy(typeManager.GetFunctionTy(RawStaticCast<FuncTy*>(fd.GetTy())->paramTys, TypeManager::GetInvalidTy()));
+        auto fdFuncTy = RawStaticCast<FuncTy*>(fd.GetTy());
+        fd.SetTy(
+            typeManager.GetFunctionTy(fdFuncTy->paramTys, fdFuncTy->implicitParamTys, TypeManager::GetInvalidTy()));
     }
     // NOTE: 'fd''s type should only be updated inside 'CheckFuncBody' not here.
     if (fd.TestAttr(AST::Attribute::MAIN_ENTRY)) {
@@ -157,6 +159,9 @@ void TypeChecker::TypeCheckerImpl::CheckEntryFunc(FuncDecl& fd)
         });
     if (invalidParamTy || fd.funcBody->paramLists[0]->params.size() > 1) {
         (void)diag.Diagnose(fd, DiagKind::sema_unexpected_param_for_entry);
+    }
+    if (fd.funcBody->implicitParamList.has_value()) {
+        (void)diag.DiagnoseRefactor(DiagKindRefactor::sema_main_cannot_have_implicits, fd.begin);
     }
     (void)mainFunctionMap[fd.curFile].emplace(&fd);
 }
@@ -525,7 +530,19 @@ void TypeChecker::TypeCheckerImpl::SetEnumEleTyHandleFuncDecl(FuncDecl& funcDecl
         param->SetTy(ty);
         paramTys.emplace_back(ty);
     }
-    auto ctorTy = typeManager.GetFunctionTy(paramTys, funcDecl.outerDecl->GetTy());
+    std::vector<Ptr<Ty>> implicitParamTys;
+    if (funcDecl.funcBody->implicitParamList.has_value()) {
+        auto& ipl = funcDecl.funcBody->implicitParamList.value();
+        for (auto& param : ipl->params) {
+            if (!param->type) {
+                continue;
+            }
+            auto ty = param->type->GetTy();
+            param->SetTy(ty);
+            implicitParamTys.emplace_back(ty);
+        }
+    }
+    auto ctorTy = typeManager.GetFunctionTy(paramTys, implicitParamTys, funcDecl.outerDecl->GetTy());
     funcDecl.funcBody->SetTy(ctorTy);
     funcDecl.SetTy(ctorTy);
     funcDecl.funcBody->retType = MakeOwned<RefType>();

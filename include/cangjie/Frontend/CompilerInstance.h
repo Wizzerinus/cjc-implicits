@@ -55,6 +55,7 @@ enum class CompileStage {
     OVERFLOW_STRATEGY,     /**< Overflow strategy. */
     MANGLING,              /**< Mangling all decls. */
     SAVE_CJO,              /**< Save CJO. */
+    DESUGAR_AFTER_CJO,
     CHIR,                  /**< CHIR. */
     CODEGEN,               /**< Generate target code. */
     SAVE_RESULTS,          /**< Save AST and CHIR results to files. */
@@ -248,6 +249,11 @@ public:
     {
         return true;
     }
+
+    /**
+     * Perform AST modifications that modify types in the program.
+     */
+    virtual bool PerformDesugarAfterCjo();
 
     /**
      * Export AST and generate results.

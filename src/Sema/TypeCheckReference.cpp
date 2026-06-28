@@ -635,6 +635,18 @@ void TypeChecker::TypeCheckerImpl::CheckAccessLegalityOfRefExpr(const ASTContext
             .AddNote(*decl, DiagKind::sema_found_candidate_decl);
     }
     CheckInvalidRefInCFunc(ctx, re, *decl);
+
+    // Verify that Throws<> capability is not created or referenced manually
+    if (!re.TestAttr(Attribute::COMPILER_ADD)) {
+        if (auto fd = DynamicCast<FuncDecl>(decl)) {
+            auto throwsStruct = importManager.GetCoreDecl<StructDecl>("Throws");
+            auto& decls = throwsStruct->GetMemberDecls();
+            if (decls.size() == 1 && fd == decls[0].get()) {
+                diag.DiagnoseRefactor(DiagKindRefactor::sema_manually_made_throws, re)
+                    .AddNote("Use a try-catch block to create Throws capabilities");
+            }
+        }
+    }
 }
 
 void TypeChecker::TypeCheckerImpl::CheckAccessLegalityOfMemberAccess(const ASTContext& ctx, MemberAccess& ma)

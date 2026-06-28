@@ -476,10 +476,19 @@ Ptr<Ty> TypeChecker::TypeCheckerImpl::GetTyFromASTCFuncType(ASTContext& ctx, Ref
         param->SetTy(GetTyFromASTType(ctx, &*param));
         paramTys.push_back(param->GetTy());
     }
+    std::vector<Ptr<Ty>> implicitParamTys;
+    if (funcType->usingType.has_value()) {
+        const auto& ut = funcType->usingType.value();
+        for (size_t i{0}; i < ut->paramTypes.size(); ++i) {
+            auto& param = ut->paramTypes[i];
+            param->SetTy(GetTyFromASTType(ctx, &*param));
+            implicitParamTys.push_back(param->GetTy());
+        }
+    }
     funcType->retType->SetTy(GetTyFromASTType(ctx, funcType->retType.get()));
     Ptr<Ty> retTy = funcType->retType->GetTy();
     funcType->SetTy(GetTyFromASTType(ctx, funcType));
-    return typeManager.GetFunctionTy(std::move(paramTys), retTy, {.isC = true});
+    return typeManager.GetFunctionTy(std::move(paramTys), std::move(implicitParamTys), retTy, {.isC = true});
 }
 
 Ptr<Ty> TypeChecker::TypeCheckerImpl::GetTyFromASTType(ASTContext& ctx, QualifiedType& qt)
@@ -595,6 +604,20 @@ Ptr<Ty> TypeChecker::TypeCheckerImpl::GetTyFromASTType(ASTContext& ctx, FuncType
         }
         paramTys.push_back(paramType->GetTy());
     }
+    std::vector<Ptr<Ty>> implicitParamTys;
+    if (funcType.usingType.has_value()) {
+        auto& ut = funcType.usingType.value();
+        for (auto& paramType : ut->paramTypes) {
+            if (!paramType) {
+                return TypeManager::GetInvalidTy();
+            }
+            paramType->SetTy(GetTyFromASTType(ctx, paramType.get()));
+            if (Ty::IsInitialTy(paramType->GetTy())) {
+                return TypeManager::GetInvalidTy();
+            }
+            implicitParamTys.push_back(paramType->GetTy());
+        }
+    }
     if (!funcType.retType) {
         return TypeManager::GetInvalidTy();
     }
@@ -602,7 +625,7 @@ Ptr<Ty> TypeChecker::TypeCheckerImpl::GetTyFromASTType(ASTContext& ctx, FuncType
     if (!funcType.retType->GetTy()) {
         return TypeManager::GetInvalidTy();
     }
-    funcType.SetTy(typeManager.GetFunctionTy(paramTys, funcType.retType->GetTy(), {funcType.isC}));
+    funcType.SetTy(typeManager.GetFunctionTy(paramTys, implicitParamTys, funcType.retType->GetTy(), {funcType.isC}));
     return funcType.GetTy();
 }
 
@@ -705,7 +728,7 @@ Ptr<AST::Ty> TypeChecker::TypeCheckerImpl::GetBuiltinCFuncType(const std::vector
     // the return type is CFunc<T>
     CJC_ASSERT(typeArgs.size() == 1 && Ty::IsTyCorrect(typeArgs[0]));
     return typeManager.GetFunctionTy(
-        typeArgs, typeArgs[0], {.isC = true, .isClosureTy = false, .hasVariableLenArg = false, .noCast = false});
+        typeArgs, {}, typeArgs[0], {.isC = true, .isClosureTy = false, .hasVariableLenArg = false, .noCast = false});
 }
 
 std::vector<Ptr<Ty>> TypeChecker::TypeCheckerImpl::GetTyFromASTType(
@@ -1808,7 +1831,7 @@ void TypeChecker::TypeCheckerImpl::PreSetDeclType(const ASTContext& ctx)
                 ? TypeManager::GetPrimitiveTy(TypeKind::TYPE_UNIT)
                 : (fd->outerDecl && fd->outerDecl->IsNominalDecl() ? fd->outerDecl->GetTy()
                                                                    : TypeManager::GetInvalidTy());
-            fd->SetTy(typeManager.GetFunctionTy(paramTys, retTy));
+            fd->SetTy(typeManager.GetFunctionTy(paramTys, GetFuncBodyImplicitParamTys(*fd->funcBody), retTy));
             continue;
         }
         if (fd->funcBody->retType) {
@@ -1820,7 +1843,8 @@ void TypeChecker::TypeCheckerImpl::PreSetDeclType(const ASTContext& ctx)
             fd->funcBody->TestAttr(Attribute::C) || (fd->TestAttr(Attribute::FOREIGN) && IsUnsafeBackend(backendType));
         bool hasVariableLenArg = fd->hasVariableLenArg ||
             (!fd->funcBody->paramLists.empty() && fd->funcBody->paramLists[0]->hasVariableLenArg);
-        fd->SetTy(typeManager.GetFunctionTy(paramTys, retTy, {isCFunc, false, hasVariableLenArg}));
+        fd->SetTy(typeManager.GetFunctionTy(
+            paramTys, GetFuncBodyImplicitParamTys(*fd->funcBody), retTy, {isCFunc, false, hasVariableLenArg}));
         if (fd->TestAttr(Attribute::IS_CHECK_VISITED)) {
             fd->funcBody->SetTy(fd->GetTy());
         }

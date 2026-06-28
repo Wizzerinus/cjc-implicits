@@ -178,7 +178,7 @@ void GenerateFwdClass::GenerateInitCJObject(AST::FuncDecl& ctor, AST::FuncDecl& 
     // create: putToRegistry(cjA)
     auto putCall = pctx->factory.CreatePutToRegistryCall(std::move(ctorCall));
     auto wrapperName = pctx->nameGenerator.GenerateInitCjObjectName(fwdCtor);
-    auto wrapperFnTy = pctx->typeManager.GetFunctionTy(CollectTys(params), putCall->GetTy(), {.isC = true});
+    auto wrapperFnTy = pctx->typeManager.GetFunctionTy(CollectTys(params), {}, putCall->GetTy(), {.isC = true});
     auto fn = ASTFactory::CreateFunc(wrapperName, wrapperFnTy, std::move(params), Nodes(std::move(putCall)));
     UpdateWrapperAttr(*fn);
     PutIntoContext(std::move(fn));
@@ -214,7 +214,7 @@ void GenerateFwdClass::GenerateDeleteCJObject()
     // create: fwd.mtx.unlock()
     auto unlock = CreateMemCall(CreateMemberAccess(CreateRefExpr(*fwdVar), *mtxVar), pctx->bridge.GetMutexUnlock());
 
-    auto fnTy = pctx->typeManager.GetFunctionTy({registryIdTy}, unitTy, {.isC = true});
+    auto fnTy = pctx->typeManager.GetFunctionTy({registryIdTy}, {}, unitTy, {.isC = true});
     auto fnName = pctx->nameGenerator.GenerateDeleteCjObjectName(*fwdClass);
     auto fn = ASTFactory::CreateFunc(fnName, fnTy, Nodes<FuncParam>(std::move(param)),
         Nodes(std::move(fwdVar), std::move(assign), std::move(remove), std::move(unlock)));
@@ -238,7 +238,7 @@ void GenerateFwdClass::GenerateLockOrUnlockCJObject(bool isLock)
     auto lockMem = isLock ? pctx->bridge.GetMutexLock() : pctx->bridge.GetMutexUnlock();
     auto call = CreateMemCall(CreateMemberAccess(std::move(fwdCall), *mtxVar), lockMem);
     auto unitTy = TypeManager::GetPrimitiveTy(TypeKind::TYPE_UNIT);
-    auto fnTy = pctx->typeManager.GetFunctionTy({registryIdTy}, unitTy, {.isC = true});
+    auto fnTy = pctx->typeManager.GetFunctionTy({registryIdTy}, {}, unitTy, {.isC = true});
     auto fnName = isLock ? pctx->nameGenerator.GenerateLockCjObjectName(*fwdClass)
                          : pctx->nameGenerator.GenerateUnlockCjObjectName(*fwdClass);
     auto fn = ASTFactory::CreateFunc(fnName, fnTy, Nodes<FuncParam>(std::move(param)), Nodes(std::move(call)));
@@ -265,7 +265,7 @@ void GenerateFwdClass::GenerateFwdMemberFuncWrapper(FuncDecl& decl, FuncDecl& im
     // Mapping: wrap params
     CreateParamsAndArgs(ASTFactory::GetParams(impl), params, *implCall);
     auto fnName = pctx->nameGenerator.GenerateMethodWrapperName(decl);
-    auto wrapperFnTy = pctx->typeManager.GetFunctionTy(CollectTys(params), implCall->GetTy(), {.isC = true});
+    auto wrapperFnTy = pctx->typeManager.GetFunctionTy(CollectTys(params), {}, implCall->GetTy(), {.isC = true});
     auto fn = ASTFactory::CreateFunc(fnName, wrapperFnTy, std::move(params), Nodes(std::move(implCall)));
     UpdateWrapperAttr(*fn);
     PutIntoContext(std::move(fn));
@@ -356,7 +356,7 @@ void GenerateFwdClass::GenerateObjcObjForPureCJ(ClassDecl& decl)
     // alloc("A")
     auto nativeHandle = pctx->factory.CreateAllocCall(decl, decl.curFile);
     auto unsafeBlock = RegCjObjAndInitObjcObj(std::move(nativeHandle), CreateRefExpr(*param));
-    auto fnTy = pctx->typeManager.GetFunctionTy({decl.GetTy()}, objVar->GetTy());
+    auto fnTy = pctx->typeManager.GetFunctionTy({decl.GetTy()}, {}, objVar->GetTy());
     auto fn =
         ASTFactory::CreateFunc(OBJC_FOR_PURE_CJ_IDENT, fnTy, Nodes<FuncParam>(std::move(param)), Nodes(std::move(unsafeBlock)));
     fn->EnableAttr(Attribute::PRIVATE, Attribute::STATIC);
@@ -389,7 +389,7 @@ void GenerateFwdClass::GenerateConstructor4FwdClass(FuncDecl& decl)
     // super call
     auto superCall = CreateSuperCall(*superClassDecl, decl, fnTy);
     CreateParamsAndArgs(ASTFactory::GetParams(decl), params, *superCall);
-    auto ctorTy = pctx->typeManager.GetFunctionTy(CollectTys(params), fwdClass->GetTy());
+    auto ctorTy = pctx->typeManager.GetFunctionTy(CollectTys(params), {}, fwdClass->GetTy());
     auto ctor = ASTFactory::CreateFunc(std::string(INIT_IDENT), ctorTy, std::move(params),
         Nodes(std::move(superCall), std::move(assignObj), std::move(assignMask)));
     ctor->EnableAttr(Attribute::PUBLIC, Attribute::CONSTRUCTOR);
@@ -437,7 +437,7 @@ void GenerateFwdClass::GenerateObjcObj4FwdClass()
     tryExpr->SetTy(ifExpr->GetTy());
     tryExpr->tryBlock = CreateBlock(false, std::move(ifExpr));
     tryExpr->finallyBlock = CreateBlock(false, CreateMemCall(CreateRefExpr(*mtxVar), pctx->bridge.GetMutexUnlock()));
-    auto fnTy = pctx->typeManager.GetFunctionTy({}, objVar->GetTy());
+    auto fnTy = pctx->typeManager.GetFunctionTy({}, {}, objVar->GetTy());
     auto fn = ASTFactory::CreateFunc(OBJC_OBJ_IDENT, fnTy, {},
         Nodes(CreateMemCall(CreateRefExpr(*mtxVar), pctx->bridge.GetMutexLock()), std::move(tryExpr)));
     fn->EnableAttr(Attribute::PRIVATE);
@@ -456,7 +456,7 @@ void GenerateFwdClass::GenerateAutoreleased4FwdClass()
     CJC_ASSERT(curFile && objcObjFunc);
     auto objcAutoReleaseDecl = pctx->bridge.GetObjCAutoReleaseDecl();
     auto autoCall = CreateCall(objcAutoReleaseDecl, curFile, CreateCall(objcObjFunc, curFile));
-    auto fnTy = pctx->typeManager.GetFunctionTy({}, objVar->GetTy());
+    auto fnTy = pctx->typeManager.GetFunctionTy({}, {}, objVar->GetTy());
     auto fn = ASTFactory::CreateFunc(AUTO_RELEASE_IDENT, fnTy, {}, Nodes(CreateBlock(true, std::move(autoCall))));
     fn->EnableAttr(Attribute::PRIVATE);
     objcAutoReleaseFunc = fn.get();
@@ -527,7 +527,7 @@ void GenerateFwdClass::GenerateFinalizer4FwdClass()
 {
     CJC_ASSERT(curFile && objVar);
     auto call = CreateCall(pctx->bridge.GetObjCReleaseDecl(), curFile, CreateRefExpr(*objVar));
-    auto fnTy = pctx->typeManager.GetFunctionTy({}, TypeManager::GetPrimitiveTy(TypeKind::TYPE_UNIT));
+    auto fnTy = pctx->typeManager.GetFunctionTy({}, {}, TypeManager::GetPrimitiveTy(TypeKind::TYPE_UNIT));
     auto fn = ASTFactory::CreateFunc(FINALIZER_IDENT, fnTy, {}, Nodes(CreateBlock(true, std::move(call))));
     fn->EnableAttr(Attribute::INTERNAL, Attribute::FINALIZER);
     PutIntoFwdClass(std::move(fn));

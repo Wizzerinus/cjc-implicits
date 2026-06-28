@@ -1411,6 +1411,23 @@ bool StructInheritanceChecker::CheckImplementationRelation(
             builder.AddNote(MakeRangeForDeclIdentifier(*targetFuncDecl),
                 "'" + childFuncTy->retTy->String() + "' is not a subtype of " + inconsistentTypesForDiag);
         }
+
+        // Make sure implicits are the same.
+        auto mts = GenerateTypeMappingBetweenFuncs(typeManager, *parentFunc, *childFunc);
+        auto superclassParamTys = parentFuncTy->implicitParamTys;
+        auto subclassParamTys = childFuncTy->implicitParamTys;
+        for (auto& ty : superclassParamTys) {
+            ty = typeManager.GetBestInstantiatedTy(ty, mts);
+        }
+        for (auto& ty : subclassParamTys) {
+            ty = typeManager.GetBestInstantiatedTy(ty, mts);
+        }
+        if (!typeManager.IsFuncParameterTypesIdentical(subclassParamTys, superclassParamTys)) {
+            auto diagBuilder =
+                diag.DiagnoseRefactor(DiagKindRefactor::sema_invalid_implicits_override, MakeRangeForDeclIdentifier(*childFunc));
+            diagBuilder.AddNote(MakeRange(parentFunc->identifier), "the overriden function");
+        }
+
         if (!childFunc->IsConst() && parentDecl->IsConst()) {
             std::string inheritance =
                 checkingDecls[0]->astKind == ASTKind::EXTEND_DECL ? "extended type" : "parent class or interfaces";

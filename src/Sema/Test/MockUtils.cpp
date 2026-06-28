@@ -772,7 +772,8 @@ OwnedPtr<RefExpr> MockUtils::CreateDeclBasedReferenceExpr(
 
     switch (target.astKind) {
         case ASTKind::FUNC_DECL: case ASTKind::VAR_DECL: {
-            ty = typeManager.GetFunctionTy(std::vector<Ptr<Ty>>(instTys.cbegin(), instTys.cend() - 1), instTys.back());
+            ty = typeManager.GetFunctionTy(
+                std::vector<Ptr<Ty>>(instTys.cbegin(), instTys.cend() - 1), {}, instTys.back());
             break;
         }
         case ASTKind::CLASS_DECL: {
@@ -843,7 +844,7 @@ Ptr<FuncTy> MockUtils::EraseFuncTypes(Ptr<FuncTy> funcTy)
         paramTys.push_back(typeManager.GetAnyTy());
     }
     
-    return typeManager.GetFunctionTy(paramTys, typeManager.GetAnyTy());
+    return typeManager.GetFunctionTy(paramTys, {}, typeManager.GetAnyTy());
 }
 
 namespace {

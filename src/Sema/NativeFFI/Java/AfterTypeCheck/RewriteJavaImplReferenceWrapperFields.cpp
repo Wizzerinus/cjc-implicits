@@ -39,7 +39,7 @@ void InsertProxyPropertyGetter(PropDecl& prop, VarDecl& actualField, VarDecl& re
     getter.moduleName = prop.moduleName;
     getter.propDecl = &prop;
     getter.isGetter = true;
-    getter.SetTy(typeManager.GetFunctionTy({}, prop.GetTy()));
+    getter.SetTy(typeManager.GetFunctionTy({}, {}, prop.GetTy()));
 
     getter.CloneAttrs(prop);
     getter.DisableAttr(Attribute::MUT);
@@ -76,7 +76,7 @@ void InsertProxyPropertySetter(PropDecl& prop, VarDecl& actualField, VarDecl& re
     setter.fullPackageName = prop.fullPackageName;
     setter.moduleName = prop.moduleName;
     setter.isSetter = true;
-    setter.SetTy(typeManager.GetFunctionTy({prop.GetTy()}, unitTy));
+    setter.SetTy(typeManager.GetFunctionTy({prop.GetTy()}, {}, unitTy));
     setter.CloneAttrs(prop);
     setter.DisableAttr(Attribute::MUT);
     setter.EnableAttr(Attribute::COMPILER_ADD);

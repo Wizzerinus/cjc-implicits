@@ -111,7 +111,7 @@ bool TypeChecker::TypeCheckerImpl::CheckBodyRetType(ASTContext& ctx, FuncBody& f
     // If the return type is not of QuestTy, then we use it to check the function's body.
     if (fb.retType->GetTy()->IsQuest()) {
         // Semantic analysis for function body without given return type.
-        auto ret = Synthesize({ctx, SynPos::NONE}, fb.body.get());
+        auto ret = SynthesizeWithUsing({ctx, SynPos::NONE}, fb);
         // In lambda, the return value type should be consistent with the body.
         // Otherwise, errors in the body that do not affect the return value type may fail to be reported.
         if (fb.funcDecl == nullptr && !Ty::IsTyCorrect(ret)) {
@@ -141,9 +141,9 @@ bool TypeChecker::TypeCheckerImpl::CheckBodyRetType(ASTContext& ctx, FuncBody& f
         if (fb.retType->GetTy()->IsUnit()) {
             // The body eventually will be appended a 'return ()' expression, so we switch to the Synthesize mode.
             // Errors should be already reported during the synthesis.
-            isWellTyped = Ty::IsTyCorrect(Synthesize({ctx, SynPos::UNUSED}, fb.body.get()));
+            isWellTyped = Ty::IsTyCorrect(SynthesizeWithUsing({ctx, SynPos::UNUSED}, fb));
         } else if (NeedCheckBodyReturn(fb)) {
-            isWellTyped = Check(ctx, fb.retType->GetTy(), fb.body.get());
+            isWellTyped = CheckWithUsing(ctx, fb.retType->GetTy(), fb);
             if (!isWellTyped && fb.body->body.empty()) {
                 DiagMismatchedTypes(diag, *fb.body, *fb.retType, "return type");
             }
@@ -211,6 +211,15 @@ bool TypeChecker::TypeCheckerImpl::CheckFuncBody(ASTContext& ctx, FuncBody& fb)
     if (!CheckNormalFuncBody(ctx, fb, paramTys)) {
         return false;
     }
+    if (fb.implicitParamList.has_value()) {
+        std::vector<Ptr<Ty>> types;
+        for (auto& it : fb.implicitParamList.value()->params) {
+            types.push_back(it->type->GetTy());
+        }
+        if (!CheckTypesAreDistinct(fb, types)) {
+            return false;
+        }
+    }
     return true;
 }
 
@@ -239,18 +248,21 @@ bool TypeChecker::TypeCheckerImpl::CheckNormalFuncBody(ASTContext& ctx, FuncBody
     bool isCFunc =
         fb.TestAttr(Attribute::C) || (fb.funcDecl && fb.funcDecl->TestAttr(Attribute::FOREIGN) && isCFFIBackend);
     bool hasVariableLenArg = (fb.funcDecl && fb.funcDecl->hasVariableLenArg) || fb.paramLists[0]->hasVariableLenArg;
+    auto implicitParamTys = GetFuncBodyImplicitParamTys(fb);
     // Check and update return type for foreign functions.
     if (!Ty::IsTyCorrect(fb.retType->GetTy())) {
         if (!fb.TestAttr(Attribute::IS_CHECK_VISITED)) {
             fb.EnableAttr(Attribute::IS_CHECK_VISITED); // Avoid re-enter funcDecl check, when function is invalid.
-            Synthesize({ctx, SynPos::NONE}, fb.body.get()); // Synthesize for other decl/expr in function body.
+            SynthesizeWithUsing({ctx, SynPos::NONE}, fb); // Synthesize for other decl/expr in function body.
         }
-        fb.SetTy(typeManager.GetFunctionTy(paramTys, fb.retType->GetTy(), {isCFunc, false, hasVariableLenArg}));
+        fb.SetTy(typeManager.GetFunctionTy(
+            paramTys, implicitParamTys, fb.retType->GetTy(), {isCFunc, false, hasVariableLenArg}));
         return false;
     }
 
     // Set funcTy before Synthesize body, avoid recursively call typecheck loop.
-    auto funcTy = typeManager.GetFunctionTy(paramTys, fb.retType->GetTy(), {isCFunc, false, hasVariableLenArg});
+    auto funcTy =
+        typeManager.GetFunctionTy(paramTys, implicitParamTys, fb.retType->GetTy(), {isCFunc, false, hasVariableLenArg});
     if (fb.funcDecl) {
         fb.funcDecl->SetTy(funcTy);
     }
@@ -258,7 +270,8 @@ bool TypeChecker::TypeCheckerImpl::CheckNormalFuncBody(ASTContext& ctx, FuncBody
 
     if (!CheckBodyRetType(ctx, fb)) {
         // Update 'fb.GetTy()' witch updated 'fb.retType->GetTy()'.
-        fb.SetTy(typeManager.GetFunctionTy(paramTys, fb.retType->GetTy(), {isCFunc, false, hasVariableLenArg}));
+        fb.SetTy(typeManager.GetFunctionTy(
+            paramTys, implicitParamTys, fb.retType->GetTy(), {isCFunc, false, hasVariableLenArg}));
         return false;
     }
 
@@ -266,7 +279,7 @@ bool TypeChecker::TypeCheckerImpl::CheckNormalFuncBody(ASTContext& ctx, FuncBody
         UnsafeCheck(fb);
     }
 
-    funcTy = typeManager.GetFunctionTy(paramTys, fb.retType->GetTy(), {isCFunc, false, hasVariableLenArg});
+    funcTy = typeManager.GetFunctionTy(paramTys, implicitParamTys, fb.retType->GetTy(), {isCFunc, false, hasVariableLenArg});
     // Update funcDecl's type after body is checked.
     if (fb.funcDecl) {
         fb.funcDecl->SetTy(funcTy);
@@ -460,10 +473,50 @@ void TypeChecker::TypeCheckerImpl::CheckCtorFuncBody(ASTContext& ctx, FuncBody& 
     }
     CheckFuncParamList(ctx, *fb.paramLists[0].get());
     auto paramTys = GetFuncBodyParamTys(fb);
-    fb.SetTy(typeManager.GetFunctionTy(paramTys, ctorTy));
+    fb.SetTy(typeManager.GetFunctionTy(paramTys, GetFuncBodyImplicitParamTys(fb), ctorTy));
     fb.funcDecl->SetTy(fb.GetTy());
     fb.retType->SetTy(ctorTy);
-    Synthesize({ctx, SynPos::UNUSED}, fb.body.get());
+    SynthesizeWithUsing({ctx, SynPos::UNUSED}, fb);
+}
+
+bool TypeChecker::TypeCheckerImpl::EnterImplicitScopeForFuncBody(ASTContext& ctx, FuncBody& fb) {
+    if (!fb.implicitParamList.has_value()) {
+        return false;
+    }
+    Ptr<FuncParamList> fpl = fb.implicitParamList.value().get();
+    if (fpl->params.empty()) {
+        return false;
+    }
+    std::vector<ImplicitValue> impTys;
+    CheckFuncParamList(ctx, *fpl);
+    auto tupleTy = DynamicCast<AST::TupleTy>(fpl->GetTy());
+    CJC_NULLPTR_CHECK(tupleTy);
+    CJC_ASSERT(fpl->params.size() == tupleTy->typeArgs.size());
+    for (size_t i = 0; i < fpl->params.size(); i++) {
+        auto& ty = tupleTy->typeArgs[i];
+        auto& decl = fpl->params[i];
+        impTys.push_back(ImplicitValue{ty, decl});
+    }
+    scopeManager.EnterImplicitScope(ctx, ImplicitScope{std::move(impTys)});
+    return true;
+}
+
+Ptr<AST::Ty> TypeChecker::TypeCheckerImpl::SynthesizeWithUsing(const CheckerContext& ctx, FuncBody& fb) {
+    bool shouldCloseScope = EnterImplicitScopeForFuncBody(ctx.Ctx(), fb);
+    Ptr<AST::Ty> out = Synthesize(ctx, fb.body.get());
+    if (shouldCloseScope) {
+        scopeManager.ExitImplicitScope(ctx.Ctx());
+    }
+    return out;
+}
+
+bool TypeChecker::TypeCheckerImpl::CheckWithUsing(ASTContext& ctx, Ptr<Ty> ty, FuncBody& fb) {
+    bool shouldCloseScope = EnterImplicitScopeForFuncBody(ctx, fb);
+    bool out = Check(ctx, ty, fb.body.get());
+    if (shouldCloseScope) {
+        scopeManager.ExitImplicitScope(ctx);
+    }
+    return out;
 }
 
 void TypeChecker::TypeCheckerImpl::CheckFuncParamList(ASTContext& ctx, FuncParamList& fpl)
@@ -1032,6 +1085,10 @@ Ptr<Ty> TypeChecker::TypeCheckerImpl::Synthesize(const CheckerContext& ctx, Ptr<
             node->SetTy(SynSyncExpr(*curCtx, *StaticAs<ASTKind::SYNCHRONIZED_EXPR>(node)));
             break;
         }
+        case ASTKind::IMPLICIT_WITH_EXPR: {
+            node->SetTy(SynImplicitWithExpr(*curCtx, *StaticAs<ASTKind::IMPLICIT_WITH_EXPR>(node)));
+            break;
+        }
         case ASTKind::EXTEND_DECL: {
             CheckExtendDecl(*curCtx, *StaticAs<ASTKind::EXTEND_DECL>(node));
             break;
@@ -1258,6 +1315,10 @@ bool TypeChecker::TypeCheckerImpl::Check(ASTContext& ctx, Ptr<Ty> target, Ptr<No
             }
             case ASTKind::SYNCHRONIZED_EXPR: {
                 chkRet = ChkSyncExpr(*curCtx, realTarget, *StaticAs<ASTKind::SYNCHRONIZED_EXPR>(node));
+                break;
+            }
+            case ASTKind::IMPLICIT_WITH_EXPR: {
+                chkRet = ChkImplicitWithExpr(*curCtx, *realTarget, *StaticAs<ASTKind::IMPLICIT_WITH_EXPR>(node));
                 break;
             }
             case ASTKind::IS_EXPR: {
@@ -2449,7 +2510,7 @@ void CollectGenericParam(const FuncDecl& funcDecl, Ptr<FuncDecl> desugared)
  * }
  */
 OwnedPtr<FuncDecl> MakeDefaultParamFunction(
-    FuncParam& fp, FuncDecl& funcDecl, const std::vector<Ptr<FuncParam>>& funcParams)
+    FuncParam& fp, FuncDecl& funcDecl, const std::vector<Ptr<FuncParam>>& funcParams, const std::vector<Ptr<FuncParam>>& implicitFuncParams)
 {
     fp.EnableAttr(Attribute::HAS_INITIAL);
     OwnedPtr<FuncDecl> ret = MakeOwnedNode<FuncDecl>();
@@ -2473,6 +2534,18 @@ OwnedPtr<FuncDecl> MakeDefaultParamFunction(
         params.emplace_back(CreateFuncParamForOptional(*param));
     }
     funcBody->paramLists[0]->params = std::move(params);
+    if (implicitFuncParams.size() > 0) {
+        std::vector<OwnedPtr<FuncParam>> implicitParams;
+        for (auto& param : implicitFuncParams) {
+            if (param == nullptr) {
+                continue; // Double Check.
+            }
+            implicitParams.emplace_back(CreateFuncParamForOptional(*param));
+        }
+        auto ipl = MakeOwnedNode<FuncParamList>();
+        ipl->params = std::move(implicitParams);
+        funcBody->implicitParamList = std::move(ipl);
+    }
     ret->funcBody = std::move(funcBody);
     // Set return expr.
     auto returnExpr = MakeOwnedNode<ReturnExpr>();
@@ -2517,7 +2590,7 @@ void TypeChecker::TypeCheckerImpl::GetSingleParamFunc(Decl& decl)
     if (notInherit) {
         return;
     }
-    std::vector<Ptr<FuncParam>> funcParams;
+    std::vector<Ptr<FuncParam>> funcParams, implicitFuncParams;
     bool isStatic = fd->TestAttr(Attribute::STATIC);
     auto walkFunc = [isStatic, this](Ptr<Node> node) -> VisitAction {
         CJC_ASSERT(node);
@@ -2537,6 +2610,14 @@ void TypeChecker::TypeCheckerImpl::GetSingleParamFunc(Decl& decl)
         }
         return VisitAction::WALK_CHILDREN;
     };
+    // We want to duplicate implicitFuncParams and add them to the functions generated here
+    // A function like f(x!: Int64 = 0) using (y: String) gets desugared into f(y: String, x!: Int64 = 0)
+    // When CHIR fills x argument, it will call x.1(y) because y is on the left, but this is not a valid call
+    if (fd->funcBody->implicitParamList.has_value()) {
+        for (auto& fp : fd->funcBody->implicitParamList.value()->params) {
+            implicitFuncParams.push_back(fp.get());
+        }
+    }
     for (auto& fp : fd->funcBody->paramLists[0]->params) {
         if (fp && fp->assignment && !fp->TestAttr(Attribute::HAS_INITIAL)) {
             if (fd->op != TokenKind::ILLEGAL || fd->TestAttr(Attribute::OPEN) || fd->TestAttr(Attribute::ABSTRACT) ||
@@ -2544,7 +2625,7 @@ void TypeChecker::TypeCheckerImpl::GetSingleParamFunc(Decl& decl)
                 DiagCannotHaveDefaultParam(diag, *fd, *fp);
                 return;
             }
-            fp->desugarDecl = MakeDefaultParamFunction(*fp, *fd, funcParams);
+            fp->desugarDecl = MakeDefaultParamFunction(*fp, *fd, funcParams, implicitFuncParams);
             // There may be nested functions inside default value function.
             Walker walker(fp->desugarDecl.get(), walkFunc);
             walker.Walk();

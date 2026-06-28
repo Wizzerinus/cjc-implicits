@@ -35,6 +35,10 @@ public:
      * Perform autobox and recursive type resolving of enum.
      */
     void PerformDesugarAfterInstantiation(ASTContext& ctx, AST::Package& pkg) const;
+    /**
+     * Update types and calls to replace implicits with explicits.
+     */
+    void PerformDesugarAfterCjo(AST::Package& pkg) const;
 
     // Desugar after sema.
     void PerformDesugarAfterSema(std::vector<Ptr<AST::Package>>& pkgs) const;

@@ -81,7 +81,8 @@ void DesugarAsExpr(TypeManager& typeManager, AsExpr& ae)
     matchCases.emplace_back(
         CreateMatchCase(
             CreateRuntimePreparedTypePattern(typeManager, std::move(varPattern), std::move(ae.asType), *ae.leftExpr),
-            CreateAsExprSomeCall(*someDecl, *theAsType, *varDecl, *typeManager.GetFunctionTy({theAsTy}, optionTy))));
+            CreateAsExprSomeCall(
+                *someDecl, *theAsType, *varDecl, *typeManager.GetFunctionTy({theAsTy}, {}, optionTy))));
     auto wildcard = MakeOwnedNode<WildcardPattern>();
     wildcard->SetTy(selectorTy);
     auto noneDecl = LookupEnumMember(optionDecl, OPTION_NONE_CTOR);

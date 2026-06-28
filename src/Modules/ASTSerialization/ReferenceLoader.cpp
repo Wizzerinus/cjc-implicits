@@ -51,12 +51,18 @@ void SetMemberDeclReference(Decl& member, Decl& parentDecl)
         }
     } else if (auto func = DynamicCast<FuncDecl*>(&member)) {
         SetFuncParentReference(*func, *parentTypeDecl);
-        if (func->funcBody->paramLists.empty()) {
-            return;
+        if (!func->funcBody->paramLists.empty()) {
+            for (auto& param : func->funcBody->paramLists[0]->params) {
+                if (param->desugarDecl) {
+                    SetFuncParentReference(*param->desugarDecl, *parentTypeDecl);
+                }
+            }
         }
-        for (auto& param : func->funcBody->paramLists[0]->params) {
-            if (param->desugarDecl) {
-                SetFuncParentReference(*param->desugarDecl, *parentTypeDecl);
+        if (func->funcBody->implicitParamList.has_value()) {
+            for (auto& param : func->funcBody->implicitParamList.value()->params) {
+                if (param->desugarDecl) {
+                    SetFuncParentReference(*param->desugarDecl, *parentTypeDecl);
+                }
             }
         }
     }
@@ -126,6 +132,14 @@ OwnedPtr<Type> WrapType(Ptr<Ty> ty)
         for (auto param : funcTy->paramTys) {
             funcType->paramTypes.emplace_back(WrapType(param));
             hasTypeAlias = hasTypeAlias || !Ty::IsInitialTy(funcType->paramTypes.back()->aliasTy);
+        }
+        if (funcTy->implicitParamTys.size() > 0) {
+            auto usingType = MakeOwned<FuncTypeUsing>();
+            for (auto param : funcTy->implicitParamTys) {
+                usingType->paramTypes.emplace_back(WrapType(param));
+                hasTypeAlias = hasTypeAlias || !Ty::IsInitialTy(usingType->paramTypes.back()->aliasTy);
+            }
+            funcType->usingType = std::move(usingType);
         }
         funcType->SetTy(ty);
         funcType->retType = WrapType(funcTy->retTy);
@@ -333,11 +347,16 @@ void ASTLoader::ASTLoaderImpl::SetGenericTy(FormattedIndex type, const PackageFo
 
 std::vector<Ptr<Ty>> ASTLoader::ASTLoaderImpl::LoadTypeArgs(const PackageFormat::SemaTy& typeObj)
 {
+    return LoadTypeArgs(typeObj.typeArgs());
+}
+
+std::vector<Ptr<Ty>> ASTLoader::ASTLoaderImpl::LoadTypeArgs(const ::flatbuffers::Vector<uint32_t>* typeObj)
+{
     std::vector<Ptr<Ty>> typeArgs;
-    CJC_NULLPTR_CHECK(typeObj.typeArgs());
-    auto length = static_cast<uoffset_t>(typeObj.typeArgs()->size());
+    CJC_NULLPTR_CHECK(typeObj);
+    auto length = static_cast<uoffset_t>(typeObj->size());
     for (uoffset_t i = 0; i < length; i++) {
-        typeArgs.emplace_back(LoadType(typeObj.typeArgs()->Get(i)));
+        typeArgs.emplace_back(LoadType(typeObj->Get(i)));
     }
     return typeArgs;
 }
@@ -367,8 +386,12 @@ void ASTLoader::ASTLoaderImpl::SetTypeTy(FormattedIndex type, const PackageForma
     } else if constexpr (std::is_same_v<TypeT, FuncTy>) {
         auto info = typeObj.info_as_FuncTyInfo();
         CJC_NULLPTR_CHECK(info);
-        ty = typeManager.GetFunctionTy(
-            LoadTypeArgs(typeObj), LoadType(info->retType()), {info->isC(), false, info->hasVariableLenArg()});
+        std::vector<Ptr<Ty>> implicitTys;
+        if (auto implicitTypesField = info->implicitTypes()) {
+            implicitTys = LoadTypeArgs(implicitTypesField);
+        }
+        ty = typeManager.GetFunctionTy(LoadTypeArgs(typeObj), std::move(implicitTys), LoadType(info->retType()),
+            {info->isC(), false, info->hasVariableLenArg()});
     } else {
         auto info = typeObj.info_as_CompositeTyInfo();
         CJC_NULLPTR_CHECK(info);

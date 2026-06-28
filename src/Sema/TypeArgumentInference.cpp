@@ -234,7 +234,7 @@ std::optional<Ptr<AST::Ty>> UnsolvedAsQuest(TypeManager& tyMgr, const TyVars& ty
             paramTys.push_back(it);
         }
         if (auto retType = UnsolvedAsQuest(tyMgr, tyVarsToSolve, *funcTy->retTy)) {
-            Ptr<Ty> fin = tyMgr.GetFunctionTy(paramTys, *retType,
+            Ptr<Ty> fin = tyMgr.GetFunctionTy(paramTys, funcTy->implicitParamTys, *retType,
                 {funcTy->IsCFunc(), funcTy->isClosureTy, funcTy->hasVariableLenArg});
             return fin;
         } else {

@@ -155,7 +155,7 @@ void DesugarJArray::InsertJniTypeParamIntoConstructor(FuncDecl& constr) const
             CJC_ABORT_WITH_MSG("'fd.ty' expected to be 'FuncTy'");
         }
         ctorFuncParamTys.push_back(strTy);
-        constr.SetTy(typeManager.GetFunctionTy(std::move(ctorFuncParamTys), constr.outerDecl->GetTy()));
+        constr.SetTy(typeManager.GetFunctionTy(std::move(ctorFuncParamTys), {}, constr.outerDecl->GetTy()));
     }
 }
 

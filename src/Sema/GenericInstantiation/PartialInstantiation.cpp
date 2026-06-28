@@ -991,6 +991,26 @@ OwnedPtr<SynchronizedExpr> PartialInstantiation::InstantiateSynchronizedExpr(
     return expr;
 }
 
+OwnedPtr<ImplicitWithExpr> PartialInstantiation::InstantiateImplicitWithExpr(
+    const ImplicitWithExpr& iwe, const VisitFunc& visitor)
+{
+    auto expr = MakeOwned<ImplicitWithExpr>();
+    for (auto& child : iwe.children) {
+        expr->children.push_back(InstantiateExpr(child.get(), visitor));
+    }
+    for (auto& child : iwe.synthesizedDecls) {
+        expr->synthesizedDecls.push_back(InstantiateDecl(child.get(), visitor));
+    }
+    expr->body = InstantiateExpr(iwe.body.get(), visitor);
+    expr->withPos = iwe.withPos;
+    expr->leftParenPos = iwe.leftParenPos;
+    expr->rightParenPos = iwe.rightParenPos;
+    for (auto pos : iwe.commaPosVector) {
+        expr->commaPosVector.push_back(pos);
+    }
+    return expr;
+}
+
 OwnedPtr<InvalidExpr> PartialInstantiation::InstantiateInvalidExpr(const InvalidExpr& ie)
 {
     auto expr = MakeOwned<InvalidExpr>(ie.begin);
@@ -1103,6 +1123,7 @@ OwnedPtr<ExprT> PartialInstantiation::InstantiateExpr(Ptr<ExprT> expr, const Vis
         [&visitor](const TypeConvExpr& e) { return OwnedPtr<Expr>(InstantiateTypeConvExpr(e, visitor)); },
         [&visitor](const SpawnExpr& se) { return OwnedPtr<Expr>(InstantiateSpawnExpr(se, visitor)); },
         [&visitor](const SynchronizedExpr& se) { return OwnedPtr<Expr>(InstantiateSynchronizedExpr(se, visitor)); },
+        [&visitor](const ImplicitWithExpr& se) { return OwnedPtr<Expr>(InstantiateImplicitWithExpr(se, visitor)); },
         [](const InvalidExpr& ie) { return OwnedPtr<Expr>(InstantiateInvalidExpr(ie)); },
         [&visitor](const Block& b) { return OwnedPtr<Expr>(InstantiateBlock(b, visitor)); },
         [&visitor](const InterpolationExpr& ie) { return OwnedPtr<Expr>(InstantiateInterpolationExpr(ie, visitor)); },
@@ -1774,13 +1795,17 @@ Ptr<Ty> TyGeneralizer::Generalize(Ty& ty)
     switch (ty.kind) {
         case TypeKind::TYPE_FUNC: {
             std::vector<Ptr<Ty>> paramTys;
+            std::vector<Ptr<Ty>> implicitParamTys;
             auto& funcTy = static_cast<FuncTy&>(ty);
             for (auto& it : funcTy.paramTys) {
                 paramTys.push_back(Generalize(it));
             }
+            for (auto& it : funcTy.implicitParamTys) {
+                implicitParamTys.push_back(Generalize(it));
+            }
             auto retType = Generalize(funcTy.retTy);
-            Ptr<Ty> ret = tyMgr.GetFunctionTy(
-                paramTys, retType, {funcTy.IsCFunc(), funcTy.isClosureTy, funcTy.hasVariableLenArg});
+            Ptr<Ty> ret = tyMgr.GetFunctionTy(paramTys, implicitParamTys, retType,
+                {funcTy.IsCFunc(), funcTy.isClosureTy, funcTy.hasVariableLenArg});
             return ret;
         }
         case TypeKind::TYPE_TUPLE: {

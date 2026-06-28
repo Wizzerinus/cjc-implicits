@@ -38,7 +38,7 @@ OwnedPtr<FuncDecl> GenerateInJavaImplRegistryCompanion::GenerateConstructor(Clas
 
     std::vector<Ptr<Ty>> paramTys;
     paramTys.push_back(javaEntityDecl->GetTy());
-    auto ctorTy = typeManager.GetFunctionTy(paramTys, companion.GetTy());
+    auto ctorTy = typeManager.GetFunctionTy(paramTys, {}, companion.GetTy());
 
     auto& block = ctor->funcBody->body;
     block->SetTy(companion.GetTy());

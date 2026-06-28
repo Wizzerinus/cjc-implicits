@@ -1607,7 +1607,8 @@ TypeChecker::TypeCheckerImpl::FuncTyPair TypeChecker::TypeCheckerImpl::CollectVa
             if (hasThisRet) {
                 // Since 'CollectValidFuncTys' is only used for reference node, we do not need to keep 'This' ty here.
                 auto realThisTy = typeManager.GetInstantiatedTy(thisCd->GetTy(), mapping);
-                instTy = typeManager.GetFunctionTy(RawStaticCast<FuncTy*>(instTy)->paramTys, realThisTy);
+                auto instFuncTy = RawStaticCast<FuncTy*>(instTy);
+                instTy = typeManager.GetFunctionTy(instFuncTy->paramTys, instFuncTy->implicitParamTys, realThisTy);
             }
             candidates.emplace_back(std::make_tuple(fd, instTy, mapping));
         }
@@ -1747,6 +1748,9 @@ void TypeChecker::TypeCheckerImpl::RemoveShadowedFunc(
         }
         auto targetTy = DynamicCast<FuncTy*>(target->GetTy());
         auto targetParamTys = targetTy ? targetTy->paramTys : GetParamTys(*target);
+        // We want to remove functions if their parameter sets are the same,
+        // even if the implicits differ, because otherwise we'll get two identical functions
+        // that we can't apply overloads to.
         return typeManager.IsFuncParameterTypesIdentical(targetParamTys, paramTys);
     };
     funcs.erase(std::remove_if(funcs.begin(), funcs.end(), isFuncSignatureSame), funcs.end());
@@ -1815,6 +1819,7 @@ void TypeChecker::TypeCheckerImpl::FilterExtendImplAbstractFunc(std::vector<Ptr<
             auto funcTy1 = StaticCast<FuncTy*>(typeManager.GetInstantiatedTy(fd1->GetTy(), typeMapping));
             auto funcTy2 = StaticCast<FuncTy*>(fd2->GetTy());
             if (typeManager.IsFuncParameterTypesIdentical(funcTy1->paramTys, funcTy2->paramTys) &&
+                typeManager.IsFuncParameterTypesIdentical(funcTy1->implicitParamTys, funcTy2->implicitParamTys) &&
                 typeManager.IsSubtype(funcTy2->retTy, funcTy1->retTy)) {
                 implementedOrOverridenFuncs.insert(fd1);
             }
@@ -2473,7 +2478,7 @@ bool TypeChecker::TypeCheckerImpl::ChkCurryCallBase(ASTContext& ctx, CallExpr& c
             }
         }
     }
-    auto targetForBase = typeManager.GetFunctionTy(paramTys, retTy, {false, false, false, true});
+    auto targetForBase = typeManager.GetFunctionTy(paramTys, {}, retTy, {false, false, false, true});
     return Check(ctx, targetForBase, ce.baseFunc.get());
 }
 
@@ -2758,12 +2763,12 @@ std::optional<Ptr<Ty>> TypeChecker::TypeCheckerImpl::DynamicBindingThisType(
     auto declOfThisType = GetDeclOfThisType(baseExpr);
     if (auto cd = DynamicCast<ClassDecl*>(declOfThisType); cd && Ty::IsTyCorrect(cd->GetTy())) {
         auto instTy = typeManager.ApplySubstPack(typeManager.GetClassThisTy(*cd, cd->GetTy()->typeArgs), typeMapping);
-        baseExpr.SetTy(typeManager.GetFunctionTy(funcTy->paramTys, instTy));
+        baseExpr.SetTy(typeManager.GetFunctionTy(funcTy->paramTys, funcTy->implicitParamTys, instTy));
         return instTy;
     } else if (auto ma = DynamicCast<MemberAccess*>(&baseExpr); ma && ma->baseExpr) {
         // If the baseExpr's type is generic type, set the function call's return type as 'gty'.
         if (auto gty = DynamicCast<GenericsTy*>(ma->baseExpr->GetTy()); gty) {
-            baseExpr.SetTy(typeManager.GetFunctionTy(funcTy->paramTys, gty));
+            baseExpr.SetTy(typeManager.GetFunctionTy(funcTy->paramTys, funcTy->implicitParamTys, gty));
             return gty;
         }
     }
@@ -2853,7 +2858,105 @@ bool TypeChecker::TypeCheckerImpl::PostCheckCallExpr(
         ce.callKind = CallKind::CALL_INVALID;
         return false;
     }
-    return true;
+
+    return ValidateImplicitContext(ctx, ce, func.GetTy(), typeMapping);
+}
+
+std::optional<std::string> GetExceptionNameFromThrowsType(Ptr<Ty> ty) {
+    if (auto structTy = DynamicCast<StructTy>(ty)) {
+        if (structTy->declPtr->fullPackageName == CORE_PACKAGE_NAME && structTy->declPtr->identifier == "Throws") {
+            if (structTy->typeArgs.size() == 1) {
+                return structTy->typeArgs[0]->String();
+            }
+        }
+    }
+    return {};
+}
+
+bool TypeChecker::TypeCheckerImpl::ValidateImplicitContext(
+    const ASTContext& ctx, CallExpr& ce, Ptr<Ty> ty, const std::optional<SubstPack>& typeMapping)
+{
+    CJC_NULLPTR_CHECK(ty);
+    if (typeMapping.has_value()) {
+        ty = typeManager.ApplySubstPack(ty, typeMapping.value());
+    }
+    auto funcTy = DynamicCast<FuncTy*>(ty);
+    auto beginPos = !ce.leftParenPos.IsZero() ? ce.leftParenPos : ce.begin;
+    if (funcTy == nullptr) {
+        diag.DiagnoseRefactor(DiagKindRefactor::sema_unexpected_nonfunc_ty, beginPos, ty->String());
+        return false;
+    }
+    ce.implicitlyAssignedArgs.clear();
+    bool ok = true;
+    for (auto& implicitType : funcTy->implicitParamTys) {
+        if (implicitType == nullptr || implicitType->IsInvalid()) {
+            diag.DiagnoseRefactor(DiagKindRefactor::sema_invalid_implicit_ty, beginPos, implicitType == nullptr ? "null" : implicitType->String());
+            ok = false;
+            continue;
+        }
+        std::optional<Ptr<Decl>> found;
+        auto& scopes = scopeManager.FetchImplicitScopes(ctx);
+        for (size_t s = scopes.size(); s > 0; s--) {
+            auto& scope = scopes[s - 1];
+            std::vector<size_t> candidates;
+            for (size_t i = 0; i < scope.items.size(); i++) {
+                auto& scopedTy = scope.items[i].type;
+                if (typeManager.IsSubtype(scopedTy, implicitType)) {
+                    candidates.push_back(i);
+                }
+            }
+            if (candidates.size() == 1) {
+                found = scope.items[candidates[0]].valueDecl;
+                break;
+            } else if (candidates.size() > 1) {
+                diag.DiagnoseRefactor(DiagKindRefactor::sema_duplicate_implicits, beginPos,
+                    std::to_string(candidates.size()), implicitType->String(), std::to_string(scopes.size() - s));
+                ok = false;
+            }
+        }
+        if (!found.has_value()) {
+            // Check if it's an Throws<> capability for a better error message
+            bool shouldDiagnose = true;
+            auto exnName = GetExceptionNameFromThrowsType(implicitType);
+            if (exnName.has_value()) {
+                shouldDiagnose = false;
+                auto ident = exnName.value();
+                auto builder = diag.DiagnoseRefactor(DiagKindRefactor::sema_missing_throws_cap, beginPos, ident);
+
+                std::string exns;
+                for (auto scope : scopeManager.FetchImplicitScopes(ctx)) {
+                    for (auto scopedItem : scope.items) {
+                        auto caughtExn = GetExceptionNameFromThrowsType(scopedItem.type);
+                        if (caughtExn.has_value()) {
+                            if (!exns.empty()) {
+                                exns += ", ";
+                            }
+                            exns += caughtExn.value();
+                        }
+                    }
+                }
+                if (!exns.empty()) {
+                    auto note = SubDiagnostic("allowed exception types in this section of code are " + exns);
+                    builder.AddNote(note);
+                }
+                
+                auto note = SubDiagnostic("add a using() declaration or add a try-catch block");
+                builder.AddNote(note);
+            }
+
+            if (shouldDiagnose) {
+                diag.DiagnoseRefactor(DiagKindRefactor::sema_implicit_not_found, beginPos, implicitType->String());
+            }
+
+            ok = false;
+        }
+
+        if (ok) {
+            auto expr = CreateRefExpr(*found.value());
+            ce.implicitlyAssignedArgs.emplace_back(CreateFuncArg(std::move(expr), "", implicitType));
+        }
+    }
+    return ok;
 }
 
 namespace {
@@ -2864,7 +2967,8 @@ Ptr<FuncTy> MakePlaceholderFuncTy(size_t arity, TypeManager& tyMgr)
     for (size_t i = 0; i < arity; i++) {
         paramTys.push_back(tyMgr.AllocTyVar());
     }
-    return tyMgr.GetFunctionTy(paramTys, retTy);
+    // Placeholder func ty for inference; implicit params are not part of the placeholder shape.
+    return tyMgr.GetFunctionTy(paramTys, {}, retTy);
 }
 
 Ptr<FuncTy> TryCastingToFuncTy(Ptr<Ty> ty, size_t arity, TypeManager& tyMgr)
@@ -2938,12 +3042,19 @@ bool TypeChecker::TypeCheckerImpl::CheckNonNormalCall(ASTContext& ctx, Ptr<Ty> t
             diag.Diagnose(ce, DiagKind::sema_unsafe_function_invoke_failed);
             res = false;
         }
+
+        // In this branch the function is already expected to be instantiated
+        if (!ValidateImplicitContext(ctx, ce, funcTy, {})) {
+            res = false;
+        }
     } else if (ChkFunctionCallExpr(ctx, target, ce)) {
         res = true;
     }
+
     if (!res) {
         ce.SetTy(TypeManager::GetInvalidTy());
     }
+
     return res;
 }
 

@@ -190,6 +190,13 @@ Ptr<AST::Ty> JoinAndMeet::JoinOrMeetFuncTy(const DualMode& mode, const std::set<
         default:
             break;
     }
+    // Implicit params are invariant, so the LUB/GLB exists only when every input agrees on them.
+    const auto& implicitParamTys = RawStaticCast<FuncTy*>(*tys.begin())->implicitParamTys;
+    for (auto ty : tys) {
+        if (!tyMgr.IsFuncParameterTypesIdentical(implicitParamTys, RawStaticCast<FuncTy*>(ty)->implicitParamTys)) {
+            return mode.bound;
+        }
+    }
     size_t paramCnt = RawStaticCast<FuncTy*>(*tys.begin())->paramTys.size();
     std::vector<Ptr<Ty>> paramTys(paramCnt);
     for (size_t i = 0; i < paramCnt; i++) {
@@ -205,7 +212,7 @@ Ptr<AST::Ty> JoinAndMeet::JoinOrMeetFuncTy(const DualMode& mode, const std::set<
     }
     auto retTy = mode.coFunc(operandRetTys);
     if (Ty::AreTysCorrect(paramTys) && Ty::IsTyCorrect(retTy)) {
-        auto resultTy = tyMgr.GetFunctionTy(paramTys, retTy);
+        auto resultTy = tyMgr.GetFunctionTy(paramTys, implicitParamTys, retTy);
         CJC_NULLPTR_CHECK(resultTy);
         for (auto ty : tys) {
             if (!mode.coSubtyFunc(ty, resultTy)) {
@@ -368,7 +375,8 @@ Ptr<Ty> JoinAndMeet::ToUserVisibleTy(Ptr<Ty> ty)
         std::transform(funcTy->paramTys.begin(), funcTy->paramTys.end(), paramTys.begin(),
             [this](Ptr<Ty> typ) { return ToUserVisibleTy(typ); });
         if (Ty::AreTysCorrect(paramTys) && Ty::IsTyCorrect(retTy)) {
-            return tyMgr.GetFunctionTy(paramTys, retTy, {funcTy->isC, funcTy->isClosureTy, funcTy->hasVariableLenArg});
+            return tyMgr.GetFunctionTy(
+                paramTys, funcTy->implicitParamTys, retTy, {funcTy->isC, funcTy->isClosureTy, funcTy->hasVariableLenArg});
         } else {
             return TypeManager::GetInvalidTy();
         }

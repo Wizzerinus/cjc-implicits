@@ -208,8 +208,15 @@ OwnedPtr<AST::Type> ParserImpl::ParseTypeWithParen()
         return MakeOwned<InvalidType>(lookahead.Begin());
     }
     Position rParenPos = lastToken.Begin();
-    if (Skip(TokenKind::ARROW)) {
+    if (Seeing(TokenKind::ARROW)) {
         return ParseFuncType(std::move(types), lParenPos, rParenPos);
+    }
+    // If next token is `using`, it's a function accepting implicits
+    if (Seeing(TokenKind::IDENTIFIER)) {
+        const auto& tok = Peek();
+        if (tok.Value() == "using") {
+            return ParseFuncType(std::move(types), lParenPos, rParenPos);
+        }
     }
     // This is a paren type.
     if (types.size() == 1) {
@@ -220,7 +227,6 @@ OwnedPtr<AST::Type> ParserImpl::ParseTypeWithParen()
         return ParseTupleType(std::move(types), lParenPos, rParenPos);
     }
     // This is treated as a broken function, which has empty types and no arrow.
-    ParseDiagnoseRefactor(DiagKindRefactor::parse_expected_arrow_in_func_type, lookahead.Begin());
     return ParseFuncType(std::move(types), lParenPos, rParenPos);
 }
 
@@ -243,10 +249,54 @@ OwnedPtr<ParenType> ParserImpl::ParseParenType(
     return pt;
 }
 
+std::optional<OwnedPtr<FuncTypeUsing>> ParserImpl::ParseFuncTypeUsing()
+{
+    if (!Seeing(TokenKind::IDENTIFIER)) {
+        return {};
+    }
+
+    const auto& tok = Peek();
+    if (tok.Value() != "using") {
+        return {};
+    }
+
+    auto ft = MakeOwned<FuncTypeUsing>();
+    Skip(TokenKind::IDENTIFIER);
+    ft->usingPos = lastToken.Begin();
+    ft->begin = ft->usingPos;
+    if (!Skip(TokenKind::LPAREN)) {
+        DiagExpectedLeftParenAfter(lastToken.Begin(), "using in function type");
+        return {};
+    }
+    ft->leftParenPos = lastToken.Begin();
+    std::vector<OwnedPtr<Type>> types;
+    std::unordered_map<std::string, Position> typeNameMap;
+    ParseZeroOrMoreSepTrailing([&types](const Position commaPos) { types.back()->commaPos = commaPos; },
+        [this, &types, &typeNameMap]() {
+            if (Seeing(TokenKind::RPAREN) && types.size() > 1) {
+                return;
+            }
+            types.emplace_back(ParseTypeParameterInTupleType(typeNameMap));
+        }, TokenKind::RPAREN);
+    ft->paramTypes = std::move(types);
+    if (!Skip(TokenKind::RPAREN)) {
+        DiagExpectedRightDelimiter("(", ft->leftParenPos);
+        return {};
+    }
+    ft->rightParenPos = lastToken.Begin();
+    ft->end = ft->rightParenPos;
+
+    return ft;
+}
+
 OwnedPtr<FuncType> ParserImpl::ParseFuncType(
     std::vector<OwnedPtr<Type>> types, const Position& lParenPos, const Position& rParenPos)
 {
     OwnedPtr<FuncType> ft = MakeOwned<FuncType>();
+    ft->usingType = ParseFuncTypeUsing();
+    if (!Skip(TokenKind::ARROW)) {
+        ParseDiagnoseRefactor(DiagKindRefactor::parse_expected_arrow_in_func_type, lookahead.Begin());
+    }
     ft->arrowPos = lastToken.Begin();
     ft->begin = lParenPos;
     ft->leftParenPos = lParenPos;

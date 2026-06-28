@@ -550,6 +550,11 @@ struct ASTHasherImpl {
         HashExpr<whatTypeToHash>(se);
         SUPERHash<whatTypeToHash>(se.syncPos, se.leftParenPos, se.mutex, se.rightParenPos, se.body);
     }
+    template <int whatTypeToHash> void HashImplicitWithExpr(const ImplicitWithExpr& iwe)
+    {
+        HashExpr<whatTypeToHash>(iwe);
+        SUPERHash<whatTypeToHash>(iwe.withPos, iwe.leftParenPos, iwe.children, iwe.rightParenPos, iwe.body);
+    }
     template <int whatTypeToHash> void HashThrowExpr(const ThrowExpr& te)
     {
         HashExpr<whatTypeToHash>(te);
