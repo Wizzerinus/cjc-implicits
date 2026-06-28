@@ -95,11 +95,6 @@ public:
         return builderList;
     }
 
-    std::unordered_map<std::string, CHIR::Function*> GetImplicitFuncs() const
-    {
-        return implicitFuncs;
-    }
-
     std::vector<CHIR::Function*> GetConstVarInitFuncs() const
     {
         return initFuncsForConstVar;
@@ -127,9 +122,7 @@ private:
     /// \param annoOnly pass the decls of which only annoFactoryFuncs are to be translated, during
     /// computing annotations stage. Empty in normal AST2CHIR translation.
     bool TranslateToCHIR(std::vector<const AST::Decl*>&& annoOnly);
-#ifdef CANGJIE_CODEGEN_CJNATIVE_BACKEND
-    bool PerformPlugin(CHIR::Package& package);
-#endif
+    bool PerformPlugin();
     void DumpCHIRToFile(const std::string& suffix, bool needCheckFlag = true);
     void DoClosureConversion();
     void ReportUnusedCode();
@@ -172,6 +165,8 @@ private:
     void ReplaceSrcCodeImportedValueWithSymbol();
     void Canonicalization();
     void ClearASTResources();
+    bool ExecuteCppPlugins();
+    bool ExecuteCjPlugins();
 
     template <typename T>
     std::pair<Value*, Apply*> DoCFFIFuncWrapper(T& curFunc, bool isForeign, bool isExternal = true);
@@ -212,7 +207,6 @@ private:
     std::unordered_set<GlobalVar*> srcCodeImportedVars;
     std::unordered_set<ClassDef*> uselessClasses;
     std::unordered_set<Function*> uselessLambda;
-    std::unordered_map<std::string, Function*> implicitFuncs;
     std::vector<CHIR::Function*> initFuncsForConstVar;
     std::unordered_map<Block*, Terminator*> maybeUnreachable;
     /// Whether this CHIR convertor is translating Annotations

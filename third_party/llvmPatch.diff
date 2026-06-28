@@ -29710,10 +29710,10 @@ index 000000000..0c417e050
 +}
 diff --git a/lldb/source/Target/CJThread.cpp b/lldb/source/Target/CJThread.cpp
 new file mode 100644
-index 000000000..4b65a401a
+index 000000000..38ff55b84
 --- /dev/null
 +++ b/lldb/source/Target/CJThread.cpp
-@@ -0,0 +1,651 @@
+@@ -0,0 +1,669 @@
 +//===-- CJThread.cpp ---------------------------------------===//
 +//
 +// Copyright (c) Huawei Technologies Co., Ltd. 2026. All rights reserved.
@@ -29811,6 +29811,19 @@ index 000000000..4b65a401a
 +    .offset_of_boundCJThread =320
 +};
 +
++constexpr CJThreadLayoutOffsets offsets_aarch64_linux_ohos = {
++    .offset_of_ScheduleManager_dot_allCJThreadList = 128,
++    .offset_of_CJThread_dot_allCJThreadDulink = 240,
++    .offset_of_CJThread_dot_context = 24,
++    .offset_of_CJThread_dot_thread = 16,
++    .offset_of_CJThread_dot_state = 216,
++    .offset_of_CJThread_dot_id = 456,
++    .offset_of_CJThread_dot_name = 464,
++    .offset_of_Thread_dot_tid = 104,
++    .offset_of_boundThread = 432,
++    .offset_of_boundCJThread =320
++};
++
 +constexpr CJThreadLayoutOffsets offsets_aarch64_darwin = {
 +    .offset_of_ScheduleManager_dot_allCJThreadList = 176,
 +    .offset_of_CJThread_dot_allCJThreadDulink = 240,
@@ -29840,7 +29853,12 @@ index 000000000..4b65a401a
 +      offsets = offsets_aarch64_darwin;
 +      return true;
 +    } else if (triple.getOS() == llvm::Triple::OSType::Linux) {
-+      offsets = offsets_aarch64_linux;
++      auto env = triple.getEnvironmentName();
++      if (env.equals("ohos")) {
++        offsets = offsets_aarch64_linux_ohos;
++      } else {
++        offsets = offsets_aarch64_linux;
++      }
 +      return true;
 +    }
 +  }
@@ -31875,7 +31893,7 @@ index 19e00e111..324854824 100644
      if (llvm::Expected<APFloat::opStatus> op =
              f.convertFromString(value_str, APFloat::rmNearestTiesToEven)) {
 diff --git a/lldb/source/Version/Version.cpp b/lldb/source/Version/Version.cpp
-index b391fe1ea..b242eb5d7 100644
+index b391fe1ea..4fd2ecdee 100644
 --- a/lldb/source/Version/Version.cpp
 +++ b/lldb/source/Version/Version.cpp
 @@ -4,6 +4,12 @@
@@ -31931,7 +31949,7 @@ index b391fe1ea..b242eb5d7 100644
        g_version_str += "\n  llvm revision ";
        g_version_str += llvm_rev;
      }
-+    g_version_str += "\n  cangjie 1.2.0-alpha.12";
++    g_version_str += "\n  cangjie 1.2.0-alpha.22";
    }
  
    return g_version_str.c_str();
@@ -36344,7 +36362,7 @@ index 000000000..1ec3ef1f2
 +
 +#endif
 diff --git a/llvm/include/llvm/Transforms/IPO/GlobalDCE.h b/llvm/include/llvm/Transforms/IPO/GlobalDCE.h
-index a24196efb..28565387a 100644
+index a24196efb..2f12f4b59 100644
 --- a/llvm/include/llvm/Transforms/IPO/GlobalDCE.h
 +++ b/llvm/include/llvm/Transforms/IPO/GlobalDCE.h
 @@ -18,9 +18,12 @@
@@ -36360,7 +36378,7 @@ index a24196efb..28565387a 100644
  #include <unordered_map>
  
  namespace llvm {
-@@ -70,6 +73,76 @@ private:
+@@ -70,6 +73,77 @@ private:
    void ScanVTableLoad(Function *Caller, Metadata *TypeId, uint64_t CallOffset);
  
    void ComputeDependencies(Value *V, SmallPtrSetImpl<GlobalValue *> &U);
@@ -36432,6 +36450,7 @@ index a24196efb..28565387a 100644
 +  void initTIE(Module &);
 +  void updateLiveExtensions();
 +  void updateNonExternalExtensionDefs(Module &M);
++  void shrinkNonExternalExtensionDefs(Module &M);
 +  void rewriteExtensions(Module &);
 +  void rewriteLLVMUsed(Module &);
  };
@@ -46099,9 +46118,27 @@ index 6b481a374..a5f29a3b7 100644
    Alignment = STI->getTargetLowering()->getMinFunctionAlignment();
  
 diff --git a/llvm/lib/CodeGen/MachineInstr.cpp b/llvm/lib/CodeGen/MachineInstr.cpp
-index e92dec5be..3b5639db3 100644
+index e92dec5be..0d880ae4a 100644
 --- a/llvm/lib/CodeGen/MachineInstr.cpp
 +++ b/llvm/lib/CodeGen/MachineInstr.cpp
+@@ -100,7 +100,7 @@ void MachineInstr::addImplicitDefUseOperands(MachineFunction &MF) {
+ /// the MCInstrDesc.
+ MachineInstr::MachineInstr(MachineFunction &MF, const MCInstrDesc &TID,
+                            DebugLoc DL, bool NoImp)
+-    : MCID(&TID), DbgLoc(std::move(DL)), DebugInstrNum(0) {
++    : MCID(&TID), DbgLoc(std::move(DL)), DebugInstrNum(0), CJStackSize(0) {
+   assert(DbgLoc.hasTrivialDestructor() && "Expected trivial destructor");
+ 
+   // Reserve space for the expected number of operands.
+@@ -119,7 +119,7 @@ MachineInstr::MachineInstr(MachineFunction &MF, const MCInstrDesc &TID,
+ /// uniqueness.
+ MachineInstr::MachineInstr(MachineFunction &MF, const MachineInstr &MI)
+     : MCID(&MI.getDesc()), Info(MI.Info), DbgLoc(MI.getDebugLoc()),
+-      DebugInstrNum(0) {
++      DebugInstrNum(0), CJStackSize(MI.CJStackSize) {
+   assert(DbgLoc.hasTrivialDestructor() && "Expected trivial destructor");
+ 
+   CapOperands = OperandCapacity::get(MI.getNumOperands());
 @@ -212,9 +212,13 @@ void MachineInstr::addOperand(MachineFunction &MF, const MachineOperand &Op) {
    // OpNo now points as the desired insertion point.  Unless this is a variadic
    // instruction, only implicit regs are allowed beyond MCID->getNumOperands().
@@ -56360,6 +56397,43 @@ index 4c24d7020..f2a8b4124 100644
      return Builder.CreateCall(Strex, {Lo, Hi, Addr});
    }
  
+diff --git a/llvm/lib/Target/ARM/ARMLoadStoreOptimizer.cpp b/llvm/lib/Target/ARM/ARMLoadStoreOptimizer.cpp
+index 0a38f5633..0d1ab530a 100644
+--- a/llvm/lib/Target/ARM/ARMLoadStoreOptimizer.cpp
++++ b/llvm/lib/Target/ARM/ARMLoadStoreOptimizer.cpp
+@@ -85,6 +85,10 @@ STATISTIC(NumSTRD2STM,  "Number of strd instructions turned back into stm");
+ STATISTIC(NumLDRD2LDR,  "Number of ldrd instructions turned back into ldr's");
+ STATISTIC(NumSTRD2STR,  "Number of strd instructions turned back into str's");
+ 
++namespace llvm {
++extern cl::opt<bool> CJPipeline;
++}
++
+ /// This switch disables formation of double/multi instructions that could
+ /// potentially lead to (new) alignment traps even with CCR.UNALIGN_TRP
+ /// disabled. This can be used to create libraries that are robust even when
+@@ -420,6 +424,12 @@ static bool isLoadSingle(unsigned Opc) {
+   return isi32Load(Opc) || Opc == ARM::VLDRS || Opc == ARM::VLDRD;
+ }
+ 
++static bool isCJArgReg(unsigned Reg) {
++  if (!CJPipeline)
++    return false;
++  return Reg == ARM::R0 || Reg == ARM::R1 || Reg == ARM::R2 || Reg == ARM::R3;
++}
++
+ static unsigned getImmScale(unsigned Opc) {
+   switch (Opc) {
+   default: llvm_unreachable("Unhandled opcode!");
+@@ -694,6 +704,8 @@ MachineInstr *ARMLoadStoreOpt::CreateLoadStoreMulti(
+       if (!isLoadSingle(Opcode))
+         for (const std::pair<unsigned, bool> &R : Regs)
+           LiveRegs.addReg(R.first);
++      if (isCJArgReg(Base))
++        LiveRegs.addReg(Base);
+ 
+       NewBase = findFreeReg(isThumb1 ? ARM::tGPRRegClass : ARM::GPRRegClass);
+       if (NewBase == 0)
 diff --git a/llvm/lib/Target/ARM/ARMSubtarget.cpp b/llvm/lib/Target/ARM/ARMSubtarget.cpp
 index 79244f634..224eaf0eb 100644
 --- a/llvm/lib/Target/ARM/ARMSubtarget.cpp
@@ -58627,10 +58701,10 @@ index 8c77b6937..4e65ed2e2 100644
        F->addParamAttr(ArgNo, Attribute::NoAlias);
 diff --git a/llvm/lib/Transforms/IPO/CJPartialEscapeAnalysis.cpp b/llvm/lib/Transforms/IPO/CJPartialEscapeAnalysis.cpp
 new file mode 100644
-index 000000000..f7924d8aa
+index 000000000..2e48842b9
 --- /dev/null
 +++ b/llvm/lib/Transforms/IPO/CJPartialEscapeAnalysis.cpp
-@@ -0,0 +1,3414 @@
+@@ -0,0 +1,3422 @@
 +//===- CJPartialEscapeAnalysis.cpp - escape analysis for Cangjie ----------===//
 +//
 +// Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
@@ -61206,6 +61280,10 @@ index 000000000..f7924d8aa
 +
 +  bool run() {
 +    bool Changed = false;
++    if (GCNew.empty()) {
++      cleanupAnalysisState();
++      return Changed;
++    }
 +    for (Function *Func : SCCFunctions) {
 +      ProcessedFunc = Func;
 +      handleLiveness(Func);
@@ -61241,6 +61319,11 @@ index 000000000..f7924d8aa
 +      }
 +    }
 +
++    cleanupAnalysisState();
++    return Changed;
++  }
++
++  void cleanupAnalysisState() {
 +    for (auto PInfo : AllPtrLocInfo) {
 +      delete PInfo.second;
 +    }
@@ -61249,7 +61332,6 @@ index 000000000..f7924d8aa
 +      delete MemInfo.second;
 +    }
 +    AllMemLocInfo.clear();
-+    return Changed;
 +  }
 +
 +  void walkBBs(BasicBlock *CurBB) {
@@ -62311,7 +62393,7 @@ index 50710eaa1..50250d7c2 100644
  
  /// Deduce returned attributes for the SCC.
 diff --git a/llvm/lib/Transforms/IPO/GlobalDCE.cpp b/llvm/lib/Transforms/IPO/GlobalDCE.cpp
-index f35827220..d206b9eaf 100644
+index f35827220..6e7c9553a 100644
 --- a/llvm/lib/Transforms/IPO/GlobalDCE.cpp
 +++ b/llvm/lib/Transforms/IPO/GlobalDCE.cpp
 @@ -18,12 +18,14 @@
@@ -62455,11 +62537,12 @@ index f35827220..d206b9eaf 100644
  
    NumAliases += DeadAliases.size();
    for (GlobalAlias *GA : DeadAliases)
-@@ -446,6 +493,11 @@ PreservedAnalyses GlobalDCEPass::run(Module &M, ModuleAnalysisManager &MAM) {
+@@ -446,6 +493,12 @@ PreservedAnalyses GlobalDCEPass::run(Module &M, ModuleAnalysisManager &MAM) {
    for (GlobalIFunc *GIF : DeadIFuncs)
      EraseUnusedGlobalValue(GIF);
  
 +  if (CJPipeline && ClEnableCJTIE) {
++    CJDCE.shrinkNonExternalExtensionDefs(M);
 +    CJDCE.rewriteExtensions(M);
 +    CJDCE.rewriteLLVMUsed(M);
 +  }
@@ -62467,7 +62550,7 @@ index f35827220..d206b9eaf 100644
    // Make sure that all memory is released
    AliveGlobals.clear();
    ConstantDependenciesCache.clear();
-@@ -458,3 +510,541 @@ PreservedAnalyses GlobalDCEPass::run(Module &M, ModuleAnalysisManager &MAM) {
+@@ -458,3 +511,596 @@ PreservedAnalyses GlobalDCEPass::run(Module &M, ModuleAnalysisManager &MAM) {
      return PreservedAnalyses::none();
    return PreservedAnalyses::all();
  }
@@ -62944,6 +63027,61 @@ index f35827220..d206b9eaf 100644
 +    GV.removeDeadConstantUsers();
 +    if (isSafeToDestroyConstant(C))
 +      C->destroyConstant();
++  }
++}
++
++void CangjieDCE::shrinkNonExternalExtensionDefs(Module &M) {
++  SmallVector<GlobalVariable *, 4> Candidates;
++  for (GlobalVariable &GV : M.globals())
++    if (GV.isCJInnerTypeExtensions())
++      Candidates.push_back(&GV);
++
++  for (auto *GV : Candidates) {
++    if (!GV->hasInitializer())
++      report_fatal_error("Must have initializer");
++
++    auto *C = GV->getInitializer();
++    ArrayType *OldAT = cast<ArrayType>(GV->getValueType());
++    Type *ATy = OldAT->getElementType();
++    std::vector<Constant *> LiveGVs;
++    for (unsigned I = 0, E = C->getNumOperands(); I != E; ++I) {
++      if (isa<ConstantPointerNull>(C->getOperand(I)))
++        continue;
++      LiveGVs.push_back(cast<Constant>(C->getOperand(I)));
++    }
++
++    // NonExternalExtensionDefs is null-terminated for runtime parsing.
++    LiveGVs.push_back(ConstantPointerNull::get(cast<PointerType>(ATy)));
++    if (LiveGVs.size() == C->getNumOperands())
++      continue;
++
++    ArrayType *AT = ArrayType::get(ATy, LiveGVs.size());
++    Constant *NewC = ConstantArray::get(AT, LiveGVs);
++    GlobalVariable *NewGV = new GlobalVariable(
++        M, AT, GV->isConstant(), GV->getLinkage(), NewC);
++    NewGV->takeName(GV);
++    NewGV->copyAttributesFrom(GV);
++    NewGV->copyMetadata(GV, /*Offset=*/0);
++
++    SmallVector<ConstantExpr *, 8> GEPUsers;
++    for (auto *U : GV->users())
++      if (auto *Expr = dyn_cast<ConstantExpr>(U);
++          Expr && Expr->getOpcode() == Instruction::GetElementPtr)
++        GEPUsers.push_back(Expr);
++    for (auto *Expr : GEPUsers) {
++      SmallVector<Constant *, 4> Operands;
++      Operands.reserve(Expr->getNumOperands());
++      for (Value *Operand : Expr->operands())
++        Operands.push_back(Operand == GV ? NewGV : cast<Constant>(Operand));
++      Constant *NewGEP =
++          Expr->getWithOperands(Operands, Expr->getType(),
++                                /*OnlyIfReduced=*/false, NewGV->getValueType());
++      Expr->replaceAllUsesWith(NewGEP);
++      if (isSafeToDestroyConstant(Expr))
++        Expr->destroyConstant();
++    }
++    GV->replaceAllUsesWith(ConstantExpr::getBitCast(NewGV, GV->getType()));
++    GV->eraseFromParent();
 +  }
 +}
 +
@@ -81409,10 +81547,10 @@ index 000000000..f66e25fc3
 +                "CJ Runtime Lowering", false, false)
 diff --git a/llvm/lib/Transforms/Scalar/CJSimpleOpt.cpp b/llvm/lib/Transforms/Scalar/CJSimpleOpt.cpp
 new file mode 100644
-index 000000000..c3e886ef2
+index 000000000..1af9e1f5b
 --- /dev/null
 +++ b/llvm/lib/Transforms/Scalar/CJSimpleOpt.cpp
-@@ -0,0 +1,939 @@
+@@ -0,0 +1,955 @@
 +//===- CJSimpleOpt.cpp - Simple opt of cangjie -------------------*- C++-*-===//
 +//
 +// Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
@@ -82315,8 +82453,17 @@ index 000000000..c3e886ef2
 +  return PreservedAnalyses::all();
 +}
 +
-+// The following instruction is redundant because the runtime has already done
-+// it when the catch type is unique.
++static GlobalVariable *getUnderlyingGlobalVariable(Value *V) {
++  auto *CE = dyn_cast<ConstantExpr>(V);
++  if (!CE || CE->getOpcode() != Instruction::BitCast)
++    return nullptr;
++  auto *GV = dyn_cast<GlobalVariable>(CE->getOperand(0));
++  if (!GV || !GV->hasName())
++    return nullptr;
++
++  return GV;
++}
++
 +//  landing_pad_bb:
 +//    ...
 +//    %x = call i1 @llvm.cj.is.subtype(...)
@@ -82338,6 +82485,13 @@ index 000000000..c3e886ef2
 +    if (!CB || !CB->getCalledFunction()->hasName() ||
 +        CB->getCalledFunction()->getName() != "CJ_MCC_IsSubType")
 +      continue;
++    auto *TypeInfoGV = getUnderlyingGlobalVariable(CB->getArgOperand(1));
++    if (!TypeInfoGV)
++      continue;
++    auto *CatchGV = getUnderlyingGlobalVariable(LPI->getOperand(0));
++    if (!CatchGV || CatchGV != TypeInfoGV)
++      continue;
++
 +    CB->replaceAllUsesWith(
 +        ConstantInt::getTrue(Type::getInt1Ty(LPI->getContext())));
 +    Changed = true;
@@ -88558,7 +88712,7 @@ index 894730367..b1d486e4f 100644
    if (auto *CB = dyn_cast<CallBase>(I)) {
      SmallVector<Type *, 3> Tys;
 diff --git a/llvm/lib/Transforms/Vectorize/LoopVectorizationLegality.cpp b/llvm/lib/Transforms/Vectorize/LoopVectorizationLegality.cpp
-index 183ba86ab..96a2af339 100644
+index 183ba86ab..41a257a0b 100644
 --- a/llvm/lib/Transforms/Vectorize/LoopVectorizationLegality.cpp
 +++ b/llvm/lib/Transforms/Vectorize/LoopVectorizationLegality.cpp
 @@ -16,6 +16,7 @@
@@ -88626,7 +88780,7 @@ index 183ba86ab..96a2af339 100644
          auto *SE = PSE.getSE();
          Intrinsic::ID IntrinID = getVectorIntrinsicIDForCall(CI, TLI);
          for (unsigned i = 0, e = CI->arg_size(); i != e; ++i)
-@@ -786,11 +788,22 @@ bool LoopVectorizationLegality::canVectorizeInstrs() {
+@@ -786,8 +788,19 @@ bool LoopVectorizationLegality::canVectorizeInstrs() {
            }
        }
  
@@ -88645,11 +88799,7 @@ index 183ba86ab..96a2af339 100644
 +      };
        if ((!VectorType::isValidElementType(I.getType()) &&
             !I.getType()->isVoidTy()) ||
--          isa<ExtractElementInst>(I)) {
-+          isa<ExtractElementInst>(I) || isGCPointerType(I.getType())) {
-         reportVectorizationFailure("Found unvectorizable type",
-             "instruction return type cannot be vectorized",
-             "CantVectorizeInstructionReturnType", ORE, TheLoop, &I);
+           isa<ExtractElementInst>(I)) {
 @@ -800,7 +813,7 @@ bool LoopVectorizationLegality::canVectorizeInstrs() {
        // Check that the stored type is vectorizable.
        if (auto *ST = dyn_cast<StoreInst>(&I)) {
@@ -88659,7 +88809,22 @@ index 183ba86ab..96a2af339 100644
            reportVectorizationFailure("Store instruction cannot be vectorized",
                                       "store instruction cannot be vectorized",
                                       "CantVectorizeStore", ORE, TheLoop, ST);
-@@ -923,9 +936,9 @@ bool LoopVectorizationLegality::canVectorizeMemory() {
+@@ -823,6 +836,14 @@ bool LoopVectorizationLegality::canVectorizeInstrs() {
+         }
+ 
+       } else if (auto *LD = dyn_cast<LoadInst>(&I)) {
++        // Do not vectorize loads of GC-managed pointer types (addrspace(1)).
++        if (isGCPointerType(I.getType())) {
++          reportVectorizationFailure("Found unvectorizable type",
++              "load of gc pointer cannot be vectorized",
++              "CantVectorizeInstructionReturnType", ORE, TheLoop, &I);
++          return false;
++        }
++
+         if (LD->getMetadata(LLVMContext::MD_nontemporal)) {
+           // For nontemporal loads, check that a nontemporal vector version is
+           // supported on the target (arbitrarily try a vector of 2 elements).
+@@ -923,9 +944,9 @@ bool LoopVectorizationLegality::canVectorizeMemory() {
    // invariant address won't alias with any other objects.
    if (!LAI->getStoresToInvariantAddresses().empty()) {
      // For each invariant address, check its last stored value is unconditional.
@@ -88672,7 +88837,7 @@ index 183ba86ab..96a2af339 100644
          reportVectorizationFailure(
              "We don't allow storing to uniform addresses",
              "write of conditional recurring variant value to a loop "
-@@ -943,9 +956,9 @@ bool LoopVectorizationLegality::canVectorizeMemory() {
+@@ -943,9 +964,9 @@ bool LoopVectorizationLegality::canVectorizeMemory() {
        // currently rejected earlier in LoopAccessInfo::analyzeLoop. In case this
        // behaviour changes we have to modify this code.
        ScalarEvolution *SE = PSE.getSE();
@@ -88685,7 +88850,7 @@ index 183ba86ab..96a2af339 100644
            // Earlier stores to this address are effectively deadcode.
            // With opaque pointers it is possible for one pointer to be used with
            // different sizes of stored values:
-@@ -956,14 +969,14 @@ bool LoopVectorizationLegality::canVectorizeMemory() {
+@@ -956,14 +977,14 @@ bool LoopVectorizationLegality::canVectorizeMemory() {
            // values are same.
            // TODO: Check that bitwidth of unhandled store is smaller then the
            // one that overwrites it and add a test.
@@ -88705,7 +88870,7 @@ index 183ba86ab..96a2af339 100644
        }
  
        bool IsOK = UnhandledStores.empty();
-@@ -1009,7 +1022,7 @@ bool LoopVectorizationLegality::canVectorizeFPMath(
+@@ -1009,7 +1030,7 @@ bool LoopVectorizationLegality::canVectorizeFPMath(
    }));
  }
  
@@ -88714,7 +88879,7 @@ index 183ba86ab..96a2af339 100644
    return any_of(getReductionVars(), [&](auto &Reduction) -> bool {
      const RecurrenceDescriptor &RdxDesc = Reduction.second;
      return RdxDesc.IntermediateStore == SI;
-@@ -1023,7 +1036,8 @@ bool LoopVectorizationLegality::isInvariantAddressOfReduction(Value *V) {
+@@ -1023,7 +1044,8 @@ bool LoopVectorizationLegality::isInvariantAddressOfReduction(Value *V) {
        return false;
  
      ScalarEvolution *SE = PSE.getSE();
@@ -117542,7 +117707,7 @@ index 000000000..5e1990f11
 \ No newline at end of file
 diff --git a/llvm/test/Transforms/Cangjie/CangjieDCE/cangjie_metadata_elim_1.ll b/llvm/test/Transforms/Cangjie/CangjieDCE/cangjie_metadata_elim_1.ll
 new file mode 100644
-index 000000000..89b65d8be
+index 000000000..822581a17
 --- /dev/null
 +++ b/llvm/test/Transforms/Cangjie/CangjieDCE/cangjie_metadata_elim_1.ll
 @@ -0,0 +1,38 @@
@@ -117570,11 +117735,11 @@ index 000000000..89b65d8be
 +@"default:A<Int32>.ti" = internal global %TypeInfo { i8* getelementptr inbounds ([17 x i8], [17 x i8]* @"default:A<Int32>.name", i32 0, i32 0), i8 -128, i8 0, i16 0, i32 0, i8* null, i32 0, i8 1, i8 1, i16 -32768, i32* null, i8* bitcast (%TypeTemplate* @"default:A.tt" to i8*), i8* bitcast ([1 x %TypeInfo*]* @"default:A<Int32>.ti.typeArgs" to i8*), i8* null, %TypeInfo* @"std.core:Object.ti", %ExtensionDef** getelementptr inbounds ([2 x %ExtensionDef*], [2 x %ExtensionDef*]* @NonExternalExtensionDefs, i32 0, i32 0), i8* inttoptr (i64 -9223372036854775807 to i8*), i8* null } #0
 +@"default:A<Int32>.ti.typeArgs" = private global [1 x %TypeInfo*] [%TypeInfo* @Int32.ti] #2
 +@"default:A<T>_ed_A:I1" = private global %ExtensionDef { i32 1, i8 1, i8* bitcast (%TypeTemplate* @"default:A.tt" to i8*), i8* bitcast (%TypeInfo* @"A:I1.ti" to i8*), i8* null, i8* null } #5
-+; CHECK: @NonExternalExtensionDefs = private global [2 x %ExtensionDef*] zeroinitializer
++; CHECK-DAG: @NonExternalExtensionDefs = private global [1 x %ExtensionDef*] zeroinitializer
 +@NonExternalExtensionDefs = private global [2 x %ExtensionDef*] [%ExtensionDef* @"default:A<T>_ed_A:I1", %ExtensionDef* null] #4
-+; CHECK: @StaticGenericTIs = private global [1 x %TypeInfo*] zeroinitializer
++; CHECK-DAG: @StaticGenericTIs = private global [1 x %TypeInfo*] zeroinitializer
 +@StaticGenericTIs = private global [1 x %TypeInfo*] [%TypeInfo* @"default:A<Int32>.ti"] #6
-+; CHECK: @llvm.used = appending global [2 x i8*] [i8* bitcast ([2 x %ExtensionDef*]* @NonExternalExtensionDefs to i8*), i8* bitcast ([1 x %TypeInfo*]* @StaticGenericTIs to i8*)], section "llvm.metadata"
++; CHECK-DAG: @llvm.used = appending global [2 x i8*] [i8* bitcast ([1 x %ExtensionDef*]* @NonExternalExtensionDefs to i8*), i8* bitcast ([1 x %TypeInfo*]* @StaticGenericTIs to i8*)], section "llvm.metadata"
 +@llvm.used = appending global [2 x i8*] [i8* bitcast ([2 x %ExtensionDef*]* @NonExternalExtensionDefs to i8*), i8* bitcast ([1 x %TypeInfo*]* @StaticGenericTIs to i8*)], section "llvm.metadata"
 +
 +attributes #0 = { "CFileKlass" }
@@ -117584,7 +117749,56 @@ index 000000000..89b65d8be
 +attributes #4 = { "InnerTypeExtensions" }
 +attributes #5 = { "CFileMTable" }
 +attributes #6 = { "CFileStaticGenericTI" }
-\ No newline at end of file
+diff --git a/llvm/test/Transforms/Cangjie/CangjieDCE/cangjie_metadata_elim_inner_ext_no_shrink.ll b/llvm/test/Transforms/Cangjie/CangjieDCE/cangjie_metadata_elim_inner_ext_no_shrink.ll
+new file mode 100644
+index 000000000..d597e150a
+--- /dev/null
++++ b/llvm/test/Transforms/Cangjie/CangjieDCE/cangjie_metadata_elim_inner_ext_no_shrink.ll
+@@ -0,0 +1,17 @@
++; RUN: opt < %s -passes='globaldce' --cangjie-pipeline -S | FileCheck %s
++
++%TypeInfo = type { i8*, i8, i8, i16, i32, i8*, i32, i8, i8, i16, i32*, i8*, i8*, i8*, %TypeInfo*, %ExtensionDef**, i8*, i8* }
++%ExtensionDef = type { i32, i8, i8, i16, i8*, i8*, i8*, i8* }
++
++@"default:I.ti" = external global %TypeInfo #0
++@"live.ti" = global %TypeInfo { i8* null, i8 -128, i8 0, i16 0, i32 0, i8* null, i32 0, i8 1, i8 0, i16 -32768, i32* null, i8* null, i8* null, i8* null, %TypeInfo* null, %ExtensionDef** getelementptr inbounds ([2 x %ExtensionDef*], [2 x %ExtensionDef*]* @NonExternalExtensionDefs, i32 0, i32 0), i8* null, i8* null } #0
++@"live.ed" = private global %ExtensionDef { i32 1, i8 1, i8 0, i16 0, i8* bitcast (%TypeInfo* @"live.ti" to i8*), i8* bitcast (%TypeInfo* @"default:I.ti" to i8*), i8* null, i8* null } #1
++; CHECK: @live.ti = global %TypeInfo {{.*}}%ExtensionDef** getelementptr inbounds ([2 x %ExtensionDef*], [2 x %ExtensionDef*]* @NonExternalExtensionDefs, i32 0, i32 0){{.*}} #0
++; CHECK: @NonExternalExtensionDefs = private global [2 x %ExtensionDef*] [%ExtensionDef* @live.ed, %ExtensionDef* null] #2
++; CHECK: @llvm.used = appending global [1 x i8*] [i8* bitcast ([2 x %ExtensionDef*]* @NonExternalExtensionDefs to i8*)], section "llvm.metadata"
++@NonExternalExtensionDefs = private global [2 x %ExtensionDef*] [%ExtensionDef* @"live.ed", %ExtensionDef* null] #2
++@llvm.used = appending global [1 x i8*] [i8* bitcast ([2 x %ExtensionDef*]* @NonExternalExtensionDefs to i8*)], section "llvm.metadata"
++
++attributes #0 = { "CFileKlass" }
++attributes #1 = { "CFileMTable" }
++attributes #2 = { "InnerTypeExtensions" }
+diff --git a/llvm/test/Transforms/Cangjie/CangjieDCE/cangjie_metadata_elim_inner_ext_shrink.ll b/llvm/test/Transforms/Cangjie/CangjieDCE/cangjie_metadata_elim_inner_ext_shrink.ll
+new file mode 100644
+index 000000000..504cc1477
+--- /dev/null
++++ b/llvm/test/Transforms/Cangjie/CangjieDCE/cangjie_metadata_elim_inner_ext_shrink.ll
+@@ -0,0 +1,21 @@
++; RUN: opt < %s -passes='globaldce' --cangjie-pipeline -S | FileCheck %s
++
++%TypeInfo = type { i8*, i8, i8, i16, i32, i8*, i32, i8, i8, i16, i32*, i8*, i8*, i8*, %TypeInfo*, %ExtensionDef**, i8*, i8* }
++%ExtensionDef = type { i32, i8, i8, i16, i8*, i8*, i8*, i8* }
++
++@"default:I.ti" = external global %TypeInfo #0
++@"live.ti" = global %TypeInfo { i8* null, i8 -128, i8 0, i16 0, i32 0, i8* null, i32 0, i8 1, i8 0, i16 -32768, i32* null, i8* null, i8* null, i8* null, %TypeInfo* null, %ExtensionDef** getelementptr inbounds ([3 x %ExtensionDef*], [3 x %ExtensionDef*]* @NonExternalExtensionDefs, i32 0, i32 1), i8* null, i8* null } #0
++@"dead.ti" = internal global %TypeInfo { i8* null, i8 -128, i8 0, i16 0, i32 0, i8* null, i32 0, i8 1, i8 0, i16 -32768, i32* null, i8* null, i8* null, i8* null, %TypeInfo* null, %ExtensionDef** getelementptr inbounds ([3 x %ExtensionDef*], [3 x %ExtensionDef*]* @NonExternalExtensionDefs, i32 0, i32 0), i8* null, i8* null } #0
++@"live.ed" = private global %ExtensionDef { i32 1, i8 1, i8 0, i16 0, i8* bitcast (%TypeInfo* @"live.ti" to i8*), i8* bitcast (%TypeInfo* @"default:I.ti" to i8*), i8* null, i8* null } #1
++@"dead.ed" = private global %ExtensionDef { i32 1, i8 1, i8 0, i16 0, i8* bitcast (%TypeInfo* @"dead.ti" to i8*), i8* bitcast (%TypeInfo* @"default:I.ti" to i8*), i8* null, i8* null } #1
++; CHECK: @live.ti = global %TypeInfo {{.*}}%ExtensionDef** getelementptr inbounds ([2 x %ExtensionDef*], [2 x %ExtensionDef*]* @NonExternalExtensionDefs, i32 0, i32 0){{.*}} #0
++; CHECK-NOT: @"dead.ti"
++; CHECK-NOT: @"dead.ed"
++; CHECK: @llvm.used = appending global [1 x i8*] [i8* bitcast ([2 x %ExtensionDef*]* @NonExternalExtensionDefs to i8*)], section "llvm.metadata"
++; CHECK: @NonExternalExtensionDefs = private global [2 x %ExtensionDef*] [%ExtensionDef* @live.ed, %ExtensionDef* null] #2
++@NonExternalExtensionDefs = private global [3 x %ExtensionDef*] [%ExtensionDef* @"dead.ed", %ExtensionDef* @"live.ed", %ExtensionDef* null] #2
++@llvm.used = appending global [1 x i8*] [i8* bitcast ([3 x %ExtensionDef*]* @NonExternalExtensionDefs to i8*)], section "llvm.metadata"
++
++attributes #0 = { "CFileKlass" }
++attributes #1 = { "CFileMTable" }
++attributes #2 = { "InnerTypeExtensions" }
 diff --git a/llvm/test/Transforms/Cangjie/DeadArgElim/dead-arg-elim-1.ll b/llvm/test/Transforms/Cangjie/DeadArgElim/dead-arg-elim-1.ll
 new file mode 100644
 index 000000000..3d297ab2a

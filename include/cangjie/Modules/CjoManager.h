@@ -53,6 +53,12 @@ public:
      * @param importedPackage the package which imports 'fullPackageName'. Empty for source package.
      */
     void AddPackageDeclMap(const std::string& fullPackageName, const std::string& importedPackage = "");
+    /**
+     * Add generated declaration 'decl' to the declMap making 'decl' visible in the package where 'decl' is declared.
+     * 'decl' visibility within other packages should work with default mechanisms after loading from cjo.
+     * Should be called only after building index.
+     */
+    void AddGeneratedDeclToDeclMap(AST::Decl& decl) const;
     /** For loading cached types during incremental compilation. */
     std::unordered_set<std::string> LoadCachedPackage(const AST::Package& pkg,
         const std::string& cjoPath, const std::map<std::string, Ptr<AST::Decl>>& mangledName2DeclMap) const;
@@ -86,6 +92,15 @@ public:
     std::string GetPackageNameByImport(const AST::ImportSpec& importSpec) const;
 
     bool IsImportPackage(const AST::ImportSpec& importSpec) const;
+    /**
+     * @brief Remove import-to-package mappings for the given import specs.
+     * @param imports Import specs to remove from importedPackageNameMap.
+     *
+     * Used when a source file is replaced during macro debug, before re-resolving its imports.
+     * Freed ImportSpec pointers may be reused; stale entries would make GetPackageNameByImport
+     * return an incorrect package name.
+     */
+    void RemoveImportedPackageNames(const std::vector<OwnedPtr<AST::ImportSpec>>& imports) const;
 
     bool IsOnlyUsedByMacro(const std::string& fullPackageName) const;
     void SetOnlyUsedByMacro(const std::string& fullPackageName, bool onlyUsedByMacro) const;

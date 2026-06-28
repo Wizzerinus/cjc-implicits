@@ -21,6 +21,7 @@
 #include "cangjie/Basic/Version.h"
 #include "cangjie/CHIR/CHIR.h"
 #include "cangjie/CHIR/Serializer/CHIRDeserializer.h"
+#include "cangjie/CHIR/Transformation/MetaTransform.h"
 #include "cangjie/CHIR/Utils/CHIRPrinter.h"
 #include "cangjie/CHIR/Utils/UserDefinedType.h"
 #include "cangjie/Driver/TempFileManager.h"
@@ -186,9 +187,7 @@ void CompilerInstance::DestroyASTResources()
 
 bool CompilerInstance::InitCompilerInstance()
 {
-#ifdef CANGJIE_CODEGEN_CJNATIVE_BACKEND
     performMap.insert_or_assign(CompileStage::LOAD_PLUGINS, &CompilerInstance::PerformPluginLoad);
-#endif
     performMap.insert_or_assign(CompileStage::PARSE, &CompilerInstance::PerformParse);
     performMap.insert_or_assign(CompileStage::CONDITION_COMPILE, &CompilerInstance::PerformConditionCompile);
     performMap.insert_or_assign(CompileStage::IMPORT_PACKAGE, &CompilerInstance::PerformImportPackage);
@@ -305,12 +304,11 @@ static bool IsNeedSaveIncrCompilationLogFile(const GlobalOptions& globalOpts, co
     return true;
 }
 
-#ifdef CANGJIE_CODEGEN_CJNATIVE_BACKEND
 namespace {
 class MetaTransformPlugin {
 public:
     static MetaTransformPlugin Get(const std::string& path);
-    void RegisterCallbackTo(MetaTransformPluginBuilder& mtm) const;
+    void RegisterCallbackTo(Cangjie::CHIR::MetaTransformPluginBuilder& mtm) const;
 
     bool IsValid() const
     {
@@ -325,54 +323,42 @@ public:
 
 private:
     MetaTransformPlugin() = default;
-    MetaTransformPlugin(const std::string& pluginPath, const MetaTransformPluginInfo& info, HANDLE handle);
+    MetaTransformPlugin(
+        const std::string& pluginPath, const Cangjie::CHIR::MetaTransformPluginInfo& info, HANDLE handle);
 
 private:
     std::string pluginPath;
-    MetaTransformPluginInfo metaTransformPluginInfo;
+    Cangjie::CHIR::MetaTransformPluginInfo metaTransformPluginInfo;
     HANDLE handle;
 };
 
 MetaTransformPlugin::MetaTransformPlugin(
-    const std::string& pluginPath, const MetaTransformPluginInfo& info, HANDLE handle)
+    const std::string& pluginPath, const Cangjie::CHIR::MetaTransformPluginInfo& info, HANDLE handle)
     : pluginPath(pluginPath), metaTransformPluginInfo(info), handle(handle)
 {
 }
 
 MetaTransformPlugin MetaTransformPlugin::Get(const std::string& path)
 {
-    HANDLE handle = nullptr;
-#ifdef _WIN32
-    handle = InvokeRuntime::OpenSymbolTable(path);
-#elif defined(__linux__) || defined(__APPLE__)
-    handle = InvokeRuntime::OpenSymbolTable(path, RTLD_NOW | RTLD_LOCAL);
-#endif
+    HANDLE handle = InvokeRuntime::OpenSymbolTable(path);
     if (!handle) {
-#ifndef CANGJIE_ENABLE_GCOV
-        throw NullPointerException();
-#else
-        CJC_ABORT();
-#endif
+        Utils::ThrowNullPointerException();
     }
     void* fPtr = InvokeRuntime::GetMethod(handle, "getMetaTransformPluginInfo");
     if (!fPtr) {
-#ifndef CANGJIE_ENABLE_GCOV
-        throw NullPointerException();
-#else
-        CJC_ABORT();
-#endif
+        Utils::ThrowNullPointerException();
     }
-    auto pluginInfo = reinterpret_cast<MetaTransformPluginInfo (*)()>(fPtr)();
+    auto pluginInfo = reinterpret_cast<Cangjie::CHIR::MetaTransformPluginInfo (*)()>(fPtr)();
     return MetaTransformPlugin(path, pluginInfo, handle);
 }
 
-void MetaTransformPlugin::RegisterCallbackTo(MetaTransformPluginBuilder& mtm) const
+void MetaTransformPlugin::RegisterCallbackTo(Cangjie::CHIR::MetaTransformPluginBuilder& mtm) const
 {
     metaTransformPluginInfo.registerTo(mtm);
 }
 } // namespace
 
-bool CompilerInstance::PerformPluginLoad()
+bool CompilerInstance::RegisterCppPlugin()
 {
     for (auto pluginPath : invocation.globalOptions.pluginPaths) { // loop for all plugins
 #ifndef CANGJIE_ENABLE_GCOV
@@ -381,8 +367,9 @@ bool CompilerInstance::PerformPluginLoad()
             auto metaTransformPlugin = MetaTransformPlugin::Get(pluginPath);
             if (!metaTransformPlugin.IsValid()) {
                 diag.DiagnoseRefactor(DiagKindRefactor::not_a_valid_plugin, DEFAULT_POSITION, pluginPath);
+                return false;
             }
-            AddPluginHandle(metaTransformPlugin.GetHandle());
+            pluginHandles.emplace_back(metaTransformPlugin.GetHandle());
             metaTransformPlugin.RegisterCallbackTo(metaTransformPluginBuilder); // register MetaTransform into builder
 #ifndef CANGJIE_ENABLE_GCOV
         } catch (...) {
@@ -393,7 +380,67 @@ bool CompilerInstance::PerformPluginLoad()
     }
     return true;
 }
+
+bool CompilerInstance::RegisterCjPlugin()
+{
+    // check it's cpp plugin or cj plugin
+    auto p = invocation.globalOptions.pluginPaths[0];
+    void* tempHandle = InvokeRuntime::OpenSymbolTable(p);
+    if (tempHandle == nullptr) {
+        return false;
+    }
+    void* fPtr = InvokeRuntime::GetMethod(tempHandle, "executeCHIRPlugins");
+    if (fPtr == nullptr) {
+        return false;
+    }
+    RuntimeInit::GetInstance().InitRuntime(
+        invocation.GetRuntimeLibPath(), invocation.globalOptions.environment.allVariables);
+    auto rtHandle = InvokeRuntime::OpenSymbolTableSafely(invocation.GetRuntimeLibPath());
+    if (rtHandle == nullptr) {
+        return false;
+    }
+    auto initLibFunc = reinterpret_cast<int (*)(const char*)>(InvokeRuntime::GetMethod(rtHandle, "InitCJLibrary"));
+    if (initLibFunc == nullptr) {
+        return false;
+    }
+    for (auto pluginPath : invocation.globalOptions.pluginPaths) {
+        void* handle = InvokeRuntime::OpenSymbolTableSafely(pluginPath);
+        if (handle == nullptr) {
+            diag.DiagnoseRefactor(DiagKindRefactor::not_a_valid_plugin, DEFAULT_POSITION, pluginPath);
+            return false;
+        }
+        bool res = initLibFunc(pluginPath.c_str());
+        if (res != 0) {
+            diag.DiagnoseRefactor(DiagKindRefactor::not_a_valid_plugin, DEFAULT_POSITION, pluginPath);
+            return false;
+        }
+    }
+    return true;
+}
+
+bool CompilerInstance::PerformPluginLoad()
+{
+    if (invocation.globalOptions.pluginPaths.empty()) {
+        return true;
+    }
+#ifndef CANGJIE_ENABLE_GCOV
+    try {
 #endif
+        if (RegisterCjPlugin()) {
+            metaTransformPluginBuilder.SetIsCppPlugin(false);
+            return true;
+        }
+        if (RegisterCppPlugin()) {
+            metaTransformPluginBuilder.SetIsCppPlugin(true);
+            return true;
+        }
+#ifndef CANGJIE_ENABLE_GCOV
+    } catch (...) {
+        return false;
+    }
+#endif
+    return false;
+}
 
 bool CompilerInstance::PerformParse()
 {
@@ -968,7 +1015,6 @@ bool CompilerInstance::GenerateCHIRForPkg(AST::Package& pkg)
     chirInfo.optEffectMap = convertor.GetOptEffectMap();
 #ifdef CANGJIE_CODEGEN_CJNATIVE_BACKEND
     chirData->AppendNewPackage(chirPkg);
-    chirData->SetImplicitFuncs(convertor.GetImplicitFuncs());
     chirData->SetConstVarInitFuncs(convertor.GetConstVarInitFuncs());
     chirInfo.curVirtFuncWrapDep = convertor.GetCurVirtualFuncWrapperDepForIncr();
     chirInfo.delVirtFuncWrapForIncr = convertor.GetDeleteVirtualFuncWrapperForIncr();
@@ -1337,16 +1383,6 @@ CHIR::Package* CHIRData::GetCurrentCHIRPackage() const
         return nullptr;
     }
     return chirPkgs[0];
-}
-
-void CHIRData::SetImplicitFuncs(const std::unordered_map<std::string, CHIR::Function*>& funcs)
-{
-    implicitFuncs = funcs;
-}
-
-std::unordered_map<std::string, CHIR::Function*> CHIRData::GetImplicitFuncs() const
-{
-    return implicitFuncs;
 }
 
 void CHIRData::SetConstVarInitFuncs(const std::vector<CHIR::Function*>& funcs)

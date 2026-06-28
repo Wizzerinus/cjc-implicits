@@ -4,12 +4,6 @@
 //
 // See https://cangjie-lang.cn/pages/LICENSE for license information.
 
-/**
- * @file
- *
- * This file declares the MetaTransform related classes.
- */
-
 #ifndef CANGJIE_METATRANSFORMPLUGINBUILDER_H
 #define CANGJIE_METATRANSFORMPLUGINBUILDER_H
 
@@ -22,6 +16,7 @@
 #include "cangjie/CHIR/IR/Value/Value.h"
 
 namespace Cangjie {
+namespace CHIR {
 enum class MetaTransformKind {
     UNKNOWN,
     FOR_CHIR_FUNC,
@@ -57,13 +52,11 @@ protected:
  */
 template <typename DeclT> struct MetaTransform : public MetaTransformConcept {
 public:
-    virtual void Run(DeclT&) = 0;
-
     MetaTransform() : MetaTransformConcept()
     {
-        if constexpr (std::is_same_v<DeclT, CHIR::Function>) {
+        if constexpr (std::is_same_v<DeclT, Function>) {
             kind = MetaTransformKind::FOR_CHIR_FUNC;
-        } else if constexpr (std::is_same_v<DeclT, CHIR::Package>) {
+        } else if constexpr (std::is_same_v<DeclT, Package>) {
             kind = MetaTransformKind::FOR_CHIR_PACKAGE;
         } else {
             kind = MetaTransformKind::UNKNOWN;
@@ -71,29 +64,28 @@ public:
     }
 
     virtual ~MetaTransform() = default;
-};
-
-struct MetaKind {
-    struct CHIR;
+    virtual void Run(DeclT&) = 0;
 };
 
 /**
  * Manages a sequence plugins over a particular metadata.
- * @tparam MetaKind
  */
-template <typename MetaKindT> class MetaTransformPluginManager {
+class CHIRPluginManager {
 public:
-    explicit MetaTransformPluginManager() = default;
-    MetaTransformPluginManager(MetaTransformPluginManager&& metaTransformPluginManager)
+    explicit CHIRPluginManager() = default;
+
+    CHIRPluginManager(CHIRPluginManager&& metaTransformPluginManager)
         : mtConcepts(std::move(metaTransformPluginManager.mtConcepts))
     {
     }
-    MetaTransformPluginManager& operator=(MetaTransformPluginManager&& rhs)
+
+    CHIRPluginManager& operator=(CHIRPluginManager&& rhs)
     {
         mtConcepts = std::move(rhs.mtConcepts);
         return *this;
     }
-    ~MetaTransformPluginManager() = default;
+
+    ~CHIRPluginManager() = default;
 
     template <typename MT> void AddMetaTransform(std::unique_ptr<MT> mt)
     {
@@ -111,20 +103,35 @@ private:
     std::vector<std::unique_ptr<MetaTransformConcept>> mtConcepts;
 };
 
-using CHIRPluginManager = MetaTransformPluginManager<MetaKind::CHIR>;
-extern template class MetaTransformPluginManager<MetaKind::CHIR>;
-
 class MetaTransformPluginBuilder {
 public:
-    void RegisterCHIRPluginCallback(std::function<void(CHIRPluginManager&, CHIR::CHIRBuilder&)> callback)
+    void RegisterCHIRPluginCallback(std::function<void(CHIRPluginManager&, CHIRBuilder&)> callback)
     {
         chirPluginCallbacks.emplace_back(callback);
     }
 
-    CHIRPluginManager BuildCHIRPluginManager(CHIR::CHIRBuilder& builder);
+    void SetIsCppPlugin(bool flag)
+    {
+        this->isCppPlugin = flag;
+    }
+
+    bool IsCppPlugin() const
+    {
+        return isCppPlugin;
+    }
+
+    CHIRPluginManager BuildCHIRPluginManager(CHIRBuilder& builder)
+    {
+        CHIRPluginManager chirPluginManager;
+        for (auto& callback : chirPluginCallbacks) {
+            callback(chirPluginManager, builder);
+        }
+        return chirPluginManager;
+    }
 
 private:
-    std::vector<std::function<void(CHIRPluginManager&, CHIR::CHIRBuilder&)>> chirPluginCallbacks;
+    std::vector<std::function<void(CHIRPluginManager&, CHIRBuilder&)>> chirPluginCallbacks;
+    bool isCppPlugin = true;
 };
 
 /**
@@ -136,19 +143,19 @@ struct MetaTransformPluginInfo {
     /* some other members: such as name, orders, etc. */
 };
 
-#define CHIR_PLUGIN(plugin_name)                                                                        \
-    namespace Cangjie {                                                                                                \
-    extern const std::string CANGJIE_VERSION;                                                                          \
-    }                                                                                                                  \
-    extern "C" MetaTransformPluginInfo getMetaTransformPluginInfo()                                                    \
-    {                                                                                                                  \
-        return {Cangjie::CANGJIE_VERSION.c_str(), [](MetaTransformPluginBuilder& mtBuilder) {                          \
-                    mtBuilder.RegisterCHIRPluginCallback([](CHIRPluginManager& mtm, CHIR::CHIRBuilder& builder) {     \
-                        mtm.AddMetaTransform(std::make_unique<plugin_name>(builder));                                  \
-                    });                                                                                                \
-                }};                                                                                                    \
+#define CHIR_PLUGIN(plugin_name)                                                                    \
+    namespace Cangjie {                                                                           \
+    extern const std::string CANGJIE_VERSION;                                                     \
+    }                                                                                             \
+    extern "C" MetaTransformPluginInfo getMetaTransformPluginInfo()                               \
+    {                                                                                             \
+        return {Cangjie::CANGJIE_VERSION.c_str(), [](MetaTransformPluginBuilder& mtBuilder) {     \
+            mtBuilder.RegisterCHIRPluginCallback([](CHIRPluginManager& mtm, CHIRBuilder& builder) { \
+                mtm.AddMetaTransform(std::make_unique<plugin_name>(builder));                     \
+            });                                                                                   \
+        }};                                                                                       \
     }
-
+} // namespace CHIR
 } // namespace Cangjie
 
 #endif
